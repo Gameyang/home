@@ -639,7 +639,8 @@ button.media-expand {
 
 .post-actions {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
   padding: 10px 16px 16px;
 }
 

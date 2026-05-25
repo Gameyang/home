@@ -5,6 +5,24 @@
     "feedUrl": "https://gameyang.github.io/GPT-GenImage2-2D-Game-Art-Resource-Test/home-feed.json",
     "pageUrl": "https://github.com/Gameyang/GPT-GenImage2-2D-Game-Art-Resource-Test",
     "sourceUrl": "https://github.com/Gameyang/GPT-GenImage2-2D-Game-Art-Resource-Test",
-    "tags": ["AI", "Game Art", "Pixel Art", "Non-commercial"]
+    "tags": [
+      "AI",
+      "Game Art",
+      "Pixel Art",
+      "Non-commercial"
+    ]
+  },
+  {
+    "id": "async-pocket-trainer",
+    "title": "Async Pocket Trainer",
+    "feedUrl": "https://gameyang.github.io/Async-Pocket-Trainer/home-feed.json",
+    "pageUrl": "https://gameyang.github.io/Async-Pocket-Trainer/",
+    "sourceUrl": "https://github.com/Gameyang/Async-Pocket-Trainer",
+    "tags": [
+      "AI",
+      "Game",
+      "TypeScript",
+      "Non-commercial"
+    ]
   }
 ]
