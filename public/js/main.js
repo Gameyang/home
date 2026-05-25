@@ -12,26 +12,13 @@ document.addEventListener('DOMContentLoaded', () => {
     label: document.body.dataset.commentsLabel || 'feed-comment'
   };
 
-  let projects = [];
+  const sourcesUrl = 'data/sources.json';
+  let posts = [];
+  let sourceErrors = [];
   let currentFilter = 'all';
   let searchQuery = '';
 
-  fetch('data/projects.json')
-    .then(response => {
-      if (!response.ok) {
-        throw new Error('프로젝트 데이터를 불러오지 못했습니다.');
-      }
-      return response.json();
-    })
-    .then(data => {
-      projects = Array.isArray(data) ? data : [];
-      updateStats(projects);
-      applyFilters();
-    })
-    .catch(error => {
-      console.error(error);
-      renderErrorState(error.message);
-    });
+  loadSocialFeed();
 
   filterButtons.forEach(button => {
     button.addEventListener('click', () => {
@@ -49,112 +36,262 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  function updateStats(projectList) {
-    const totalCount = projectList.length;
-    const publishedCount = projectList.filter(project => project.status === 'published').length;
-    const draftCount = projectList.filter(project => project.status === 'draft').length;
-    const archivedCount = projectList.filter(project => project.status === 'archived').length;
+  async function loadSocialFeed() {
+    renderLoadingState();
 
-    statTotal.textContent = totalCount;
-    statPublished.textContent = publishedCount;
-    statDraft.textContent = draftCount;
-    statArchived.textContent = archivedCount;
+    try {
+      const sources = await fetchJson(sourcesUrl);
+      if (!Array.isArray(sources) || sources.length === 0) {
+        throw new Error('연결된 공개 프로젝트 피드가 없습니다.');
+      }
+
+      const results = await Promise.allSettled(sources.map(loadSourceFeed));
+      const loadedPosts = [];
+      sourceErrors = [];
+
+      results.forEach((result, index) => {
+        if (result.status === 'fulfilled') {
+          loadedPosts.push(...result.value.posts);
+          return;
+        }
+
+        const source = sources[index] || {};
+        sourceErrors.push({
+          id: source.id || `source-${index + 1}`,
+          title: source.title || source.id || `Source ${index + 1}`,
+          message: result.reason?.message || '피드를 불러오지 못했습니다.'
+        });
+      });
+
+      posts = loadedPosts.sort((a, b) => {
+        const dateCompare = b.sortDate - a.sortDate;
+        if (dateCompare !== 0) return dateCompare;
+        return a.title.localeCompare(b.title, 'ko');
+      });
+
+      updateStats(posts);
+      applyFilters();
+    } catch (error) {
+      console.error(error);
+      posts = [];
+      sourceErrors = [{ id: 'feed-config', title: 'Feed configuration', message: error.message }];
+      updateStats(posts);
+      renderErrorState(error.message);
+    }
+  }
+
+  async function loadSourceFeed(source) {
+    if (!source || !source.feedUrl) {
+      throw new Error('feedUrl이 없는 source 항목입니다.');
+    }
+
+    const feed = await fetchJson(source.feedUrl);
+    const baseUrl = new URL(source.feedUrl, window.location.href);
+    const project = normalizeProject(feed.project || {}, source, baseUrl);
+    const feedPosts = Array.isArray(feed.posts) ? feed.posts : [];
+
+    return {
+      project,
+      posts: feedPosts.map((post, index) => normalizePost(post, project, baseUrl, index))
+    };
+  }
+
+  async function fetchJson(url) {
+    const response = await fetch(url, { cache: 'no-store' });
+    if (!response.ok) {
+      throw new Error(`${url} 응답 오류: ${response.status}`);
+    }
+    return response.json();
+  }
+
+  function normalizeProject(project, source, baseUrl) {
+    const sourceUrl = source.sourceUrl || project.sourceUrl || '';
+    const pageUrl = source.pageUrl || project.pageUrl || sourceUrl || '';
+
+    return {
+      id: slugify(project.id || source.id || project.title || 'project'),
+      title: project.title || source.title || source.id || 'Untitled project',
+      description: project.description || '',
+      pageUrl: resolveUrl(pageUrl, baseUrl),
+      sourceUrl: resolveUrl(sourceUrl, baseUrl),
+      tags: normalizeTags([...(project.tags || []), ...(source.tags || [])])
+    };
+  }
+
+  function normalizePost(post, project, baseUrl, index) {
+    const media = normalizeMedia(post.media || [], baseUrl);
+    const type = normalizePostType(post.type, media);
+    const date = post.date || '';
+    const sortDate = new Date(`${date || '1970-01-01'}T00:00:00`).getTime() || 0;
+    const id = slugify(post.id || `${project.id}-${index + 1}`);
+
+    return {
+      id,
+      project,
+      title: post.title || project.title,
+      text: post.text || post.description || '',
+      date,
+      sortDate,
+      type,
+      media,
+      url: resolveUrl(post.url || project.pageUrl, baseUrl),
+      tags: normalizeTags([...(project.tags || []), ...(post.tags || [])])
+    };
+  }
+
+  function normalizeMedia(media, baseUrl) {
+    if (!Array.isArray(media)) return [];
+
+    return media
+      .filter(item => item && item.url)
+      .map(item => ({
+        type: normalizeMediaType(item.type, item.url),
+        url: resolveUrl(item.url, baseUrl),
+        alt: item.alt || '',
+        poster: item.poster ? resolveUrl(item.poster, baseUrl) : '',
+        title: item.title || ''
+      }));
+  }
+
+  function normalizeMediaType(type, url) {
+    const value = String(type || '').toLowerCase();
+    if (value) return value;
+
+    const pathname = String(url || '').toLowerCase();
+    if (pathname.endsWith('.gif')) return 'gif';
+    if (pathname.endsWith('.mp4') || pathname.endsWith('.webm')) return 'video';
+    return 'image';
+  }
+
+  function normalizePostType(type, media) {
+    const value = String(type || '').toLowerCase();
+    if (['image', 'gallery', 'gif', 'video', 'embed', 'text'].includes(value)) return value;
+    if (media.length > 1) return 'gallery';
+    if (media[0]) return media[0].type;
+    return 'text';
+  }
+
+  function normalizeTags(tags) {
+    return [...new Set((tags || []).map(tag => String(tag).trim()).filter(Boolean))];
+  }
+
+  function resolveUrl(value, baseUrl) {
+    if (!value) return '';
+    if (value === '#') return '#';
+
+    try {
+      return new URL(value, baseUrl).href;
+    } catch {
+      return value;
+    }
+  }
+
+  function updateStats(postList) {
+    const projectIds = new Set(postList.map(post => post.project.id));
+    const visualCount = postList.filter(post => ['image', 'gallery', 'gif'].includes(post.type)).length;
+    const demoCount = postList.filter(post => post.type === 'embed' || post.type === 'video').length;
+
+    statTotal.textContent = postList.length;
+    statPublished.textContent = projectIds.size;
+    statDraft.textContent = visualCount;
+    statArchived.textContent = demoCount;
   }
 
   function applyFilters() {
     const query = searchQuery.trim().toLowerCase();
-    let filteredProjects = projects;
+    let filteredPosts = posts;
 
     if (currentFilter !== 'all') {
-      filteredProjects = filteredProjects.filter(project => project.status === currentFilter);
+      filteredPosts = filteredPosts.filter(post => matchesFilter(post, currentFilter));
     }
 
     if (query) {
-      filteredProjects = filteredProjects.filter(project => {
+      filteredPosts = filteredPosts.filter(post => {
         const searchable = [
-          project.title,
-          project.description,
-          project.week,
-          project.type,
-          ...(project.tags || [])
+          post.project.title,
+          post.project.description,
+          post.title,
+          post.text,
+          post.date,
+          post.type,
+          ...post.tags
         ].join(' ').toLowerCase();
 
         return searchable.includes(query);
       });
     }
 
-    renderFeed(filteredProjects);
+    renderFeed(filteredPosts);
   }
 
-  function renderFeed(projectList) {
+  function matchesFilter(post, filter) {
+    if (filter === 'image') return ['image', 'gallery'].includes(post.type);
+    if (filter === 'gif') return post.type === 'gif' || post.media.some(item => item.type === 'gif');
+    if (filter === 'video') return post.type === 'video' || post.media.some(item => item.type === 'video');
+    if (filter === 'embed') return post.type === 'embed';
+    return post.type === filter;
+  }
+
+  function renderFeed(postList) {
     if (!feedContainer) return;
 
     feedContainer.innerHTML = '';
 
-    if (projectList.length === 0) {
+    sourceErrors.forEach(error => {
+      feedContainer.appendChild(createNoticeCard(error));
+    });
+
+    if (postList.length === 0) {
       renderEmptyState();
       return;
     }
 
-    projectList.forEach(project => {
-      feedContainer.appendChild(createPostCard(project));
+    postList.forEach(post => {
+      feedContainer.appendChild(createPostCard(post));
     });
   }
 
-  function createPostCard(project) {
+  function createPostCard(post) {
     const card = document.createElement('article');
-    card.className = `post-card ${escapeAttribute(project.status || '')}`;
+    card.className = `post-card ${escapeAttribute(post.type)}`;
 
-    const isOpenable = project.status !== 'draft' && project.url && project.url !== '#';
-    const commentPanelId = `comments-${slugify(project.id || project.title)}`;
+    const commentPanelId = `comments-${post.project.id}-${post.id}`;
 
     card.innerHTML = `
       <header class="post-header">
-        <div class="post-avatar" aria-hidden="true">${getInitial(project.author || project.title)}</div>
+        <div class="post-avatar" aria-hidden="true">${getInitial(post.project.title)}</div>
         <div class="post-meta">
           <div class="post-author-row">
-            <span class="post-author">${escapeHtml(project.author || 'Gameyang')}</span>
-            <span class="status-pill ${escapeAttribute(project.status || 'draft')}">${getStatusLabel(project.status)}</span>
+            <span class="post-author">${escapeHtml(post.project.title)}</span>
+            <span class="status-pill ${escapeAttribute(post.type)}">${getTypeLabel(post.type)}</span>
           </div>
-          <div class="post-time">${escapeHtml(project.week || '')}${project.date ? ` · ${formatDate(project.date)}` : ''}${project.type ? ` · ${escapeHtml(project.type)}` : ''}</div>
+          <div class="post-time">${post.date ? `${formatDate(post.date)} · ` : ''}${escapeHtml(post.tags.slice(0, 3).join(' · '))}</div>
         </div>
       </header>
 
       <div class="post-body">
-        <h2 class="post-title">${escapeHtml(project.title || 'Untitled project')}</h2>
-        <p class="post-description">${escapeHtml(project.description || '')}</p>
-        ${renderTags(project.tags)}
+        <h2 class="post-title">${escapeHtml(post.title)}</h2>
+        <p class="post-description">${escapeHtml(post.text)}</p>
+        ${renderTags(post.tags)}
       </div>
 
-      <div class="post-media">
-        ${project.thumbnail ? `
-          <img src="${escapeAttribute(project.thumbnail)}" alt="${escapeAttribute(project.title || '프로젝트 썸네일')}" loading="lazy">
-        ` : renderFallback(project.title)}
-      </div>
+      ${renderMedia(post)}
 
       <div class="post-actions">
-        ${isOpenable ? `
-          <a class="action-button primary" href="${escapeAttribute(project.url)}">프로젝트 보기</a>
-        ` : `
-          <span class="action-button disabled" aria-disabled="true">${project.status === 'draft' ? '준비 중' : '링크 없음'}</span>
-        `}
-        ${project.source ? `
-          <a class="action-button" href="${escapeAttribute(project.source)}" target="_blank" rel="noopener noreferrer">소스</a>
-        ` : `
-          <span class="action-button disabled" aria-disabled="true">소스 없음</span>
-        `}
+        ${renderLinkButton(post.url, '보기', 'primary')}
+        ${renderLinkButton(post.project.pageUrl, '프로젝트')}
+        ${renderLinkButton(post.project.sourceUrl, '소스')}
         <button class="action-button comments-toggle" type="button" aria-expanded="false" aria-controls="${commentPanelId}">댓글</button>
       </div>
 
       <div class="comments-panel" id="${commentPanelId}" hidden></div>
     `;
 
-    const image = card.querySelector('.post-media img');
-    if (image) {
+    card.querySelectorAll('.post-media img, .media-grid img').forEach(image => {
       image.addEventListener('error', () => {
-        image.replaceWith(createFallbackElement(project.title));
+        image.replaceWith(createFallbackElement(post.title));
       });
-    }
+    });
 
     const commentsButton = card.querySelector('.comments-toggle');
     const commentsPanel = card.querySelector('.comments-panel');
@@ -164,14 +301,100 @@ document.addEventListener('DOMContentLoaded', () => {
       commentsPanel.hidden = isExpanded;
 
       if (!isExpanded && !commentsPanel.dataset.loaded) {
-        loadComments(project, commentsPanel);
+        loadComments(post, commentsPanel);
       }
     });
 
     return card;
   }
 
-  function loadComments(project, container) {
+  function renderMedia(post) {
+    if (post.type === 'embed' && post.media[0]) {
+      const embed = post.media[0];
+      return `
+        <div class="post-media embed-media">
+          <iframe src="${escapeAttribute(embed.url)}" title="${escapeAttribute(embed.title || post.title)}" loading="lazy" allowfullscreen></iframe>
+        </div>
+      `;
+    }
+
+    if (post.type === 'video' && post.media[0]) {
+      const video = post.media[0];
+      return `
+        <div class="post-media video-media">
+          <video controls playsinline ${video.poster ? `poster="${escapeAttribute(video.poster)}"` : ''}>
+            <source src="${escapeAttribute(video.url)}">
+          </video>
+        </div>
+      `;
+    }
+
+    if (post.media.length > 1 || post.type === 'gallery' || post.type === 'gif') {
+      return `
+        <div class="media-grid ${post.media.length === 1 ? 'single' : ''}">
+          ${post.media.map(item => renderMediaItem(item, post.title)).join('')}
+        </div>
+      `;
+    }
+
+    if (post.media[0]) {
+      const image = post.media[0];
+      return `
+        <div class="post-media">
+          <img src="${escapeAttribute(image.url)}" alt="${escapeAttribute(image.alt || post.title)}" loading="lazy">
+        </div>
+      `;
+    }
+
+    return `
+      <div class="post-media">
+        ${renderFallback(post.title)}
+      </div>
+    `;
+  }
+
+  function renderMediaItem(item, fallbackTitle) {
+    if (item.type === 'video') {
+      return `
+        <div class="media-item">
+          <video controls playsinline ${item.poster ? `poster="${escapeAttribute(item.poster)}"` : ''}>
+            <source src="${escapeAttribute(item.url)}">
+          </video>
+        </div>
+      `;
+    }
+
+    return `
+      <div class="media-item">
+        <img src="${escapeAttribute(item.url)}" alt="${escapeAttribute(item.alt || fallbackTitle)}" loading="lazy">
+      </div>
+    `;
+  }
+
+  function renderLinkButton(url, label, variant = '') {
+    if (!url || url === '#') {
+      return `<span class="action-button disabled" aria-disabled="true">${escapeHtml(label)}</span>`;
+    }
+
+    const external = /^https?:\/\//i.test(url);
+    return `
+      <a class="action-button ${escapeAttribute(variant)}" href="${escapeAttribute(url)}" ${external ? 'target="_blank" rel="noopener noreferrer"' : ''}>${escapeHtml(label)}</a>
+    `;
+  }
+
+  function createNoticeCard(error) {
+    const card = document.createElement('article');
+    card.className = 'post-card notice-card';
+    card.innerHTML = `
+      <div class="post-body">
+        <h2 class="post-title">${escapeHtml(error.title)}</h2>
+        <p class="post-description">${escapeHtml(error.message)}</p>
+      </div>
+    `;
+    return card;
+  }
+
+  function loadComments(post, container) {
     container.dataset.loaded = 'true';
     container.innerHTML = '';
 
@@ -187,7 +410,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const script = document.createElement('script');
     script.src = 'https://utteranc.es/client.js';
     script.setAttribute('repo', commentConfig.repo);
-    script.setAttribute('issue-term', `feed-${project.id || slugify(project.title)}`);
+    script.setAttribute('issue-term', `feed-${post.project.id}-${post.id}`);
     script.setAttribute('label', commentConfig.label);
     script.setAttribute('theme', commentConfig.theme);
     script.setAttribute('crossorigin', 'anonymous');
@@ -229,14 +452,28 @@ document.addEventListener('DOMContentLoaded', () => {
     return fallback;
   }
 
-  function renderEmptyState() {
+  function renderLoadingState() {
+    if (!feedContainer) return;
     feedContainer.innerHTML = `
       <section class="empty-state">
-        <h2>검색 결과가 없습니다</h2>
-        <p>검색어를 바꾸거나 다른 상태 필터를 선택해 주세요.</p>
-        <button class="reset-btn" type="button" id="reset-filters-btn">필터 초기화</button>
+        <h2>피드를 불러오는 중입니다</h2>
+        <p>공개 프로젝트의 소셜 포스트를 모으고 있습니다.</p>
       </section>
     `;
+  }
+
+  function renderEmptyState() {
+    if (!feedContainer) return;
+
+    const hasWarnings = sourceErrors.length > 0;
+    const emptyState = document.createElement('section');
+    emptyState.className = 'empty-state';
+    emptyState.innerHTML = `
+      <h2>${hasWarnings ? '표시할 포스트가 없습니다' : '검색 결과가 없습니다'}</h2>
+      <p>${hasWarnings ? '연결된 공개 피드 URL과 GitHub Pages 배포 상태를 확인해 주세요.' : '검색어를 바꾸거나 다른 미디어 필터를 선택해 주세요.'}</p>
+      <button class="reset-btn" type="button" id="reset-filters-btn">필터 초기화</button>
+    `;
+    feedContainer.appendChild(emptyState);
 
     document.getElementById('reset-filters-btn')?.addEventListener('click', () => {
       currentFilter = 'all';
@@ -259,13 +496,16 @@ document.addEventListener('DOMContentLoaded', () => {
     `;
   }
 
-  function getStatusLabel(status) {
+  function getTypeLabel(type) {
     const labels = {
-      published: '공개',
-      draft: '작업중',
-      archived: '보관'
+      image: '이미지',
+      gallery: '갤러리',
+      gif: 'GIF',
+      video: '영상',
+      embed: '데모',
+      text: '노트'
     };
-    return labels[status] || '상태 미정';
+    return labels[type] || '포스트';
   }
 
   function formatDate(value) {

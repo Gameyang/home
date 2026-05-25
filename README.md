@@ -1,15 +1,15 @@
 # Weekly Project Home
 
-주간 프로젝트를 소셜 미디어 피드처럼 모아 보는 정적 웹 허브입니다. 각 프로젝트는 하나의 피드 포스트로 표시되며, 공개 빌드 링크, 소스 링크, 상태, 태그, 썸네일, 댓글 영역을 제공합니다.
+주간 프로젝트를 소셜 미디어 피드처럼 모아 보는 정적 웹 허브입니다. 각 공개 프로젝트가 제공하는 `home-feed.json`을 읽어 이미지, GIF, 영상, 미니게임 포스트를 타임라인으로 표시합니다.
 
 이 저장소는 GitHub Pages 배포를 전제로 합니다. 서버 애플리케이션이나 데이터베이스를 실행하지 않고, `public/` 아래의 HTML, CSS, JavaScript, JSON 파일만으로 동작합니다.
 
 ## Features
 
-- 프로젝트를 세로형 피드 UI로 표시
-- `published`, `draft`, `archived` 상태 필터
-- 제목, 설명, 주차, 날짜, 유형, 태그 검색
-- 썸네일 이미지와 이미지 누락 시 이니셜 fallback 표시
+- 공개 프로젝트의 feed JSON을 모아 세로형 소셜 피드 UI로 표시
+- 이미지, GIF, 영상, 데모 미디어 필터
+- 포스트 제목, 설명, 날짜, 유형, 태그 검색
+- 갤러리 이미지, GIF, 비디오, iframe 데모 표시
 - 프로젝트 공개 URL 및 GitHub 소스 링크 제공
 - GitHub Issues 기반 댓글 위젯 지원
 - GitHub Pages에 바로 배포 가능한 정적 파일 구조
@@ -32,39 +32,61 @@
     ├── js/
     │   └── main.js
     ├── data/
-    │   └── projects.json
+    │   └── sources.json
     └── assets/
         └── thumbnails/
 ```
 
-## Project Data
+## Feed Data
 
-피드에 표시되는 프로젝트 목록은 `public/data/projects.json`에서 관리합니다.
+홈이 읽을 공개 프로젝트 목록은 `public/data/sources.json`에서 관리합니다.
 
 ```json
 [
   {
-    "id": "example-week-01",
-    "title": "WebGL 3D Room Visualizer",
-    "description": "프로젝트 설명",
-    "status": "published",
-    "week": "2026-W22",
-    "date": "2026-05-25",
-    "type": "Interactive demo",
-    "author": "Gameyang",
-    "thumbnail": "assets/thumbnails/example-week-01.png",
-    "url": "projects/example-week-01/",
-    "source": "https://github.com/Gameyang/example-repo",
-    "tags": ["WebGL", "Three.js", "Interior"]
+    "id": "gpt-genimage2-2d-game-art-resource-test",
+    "title": "GPT GenImage2 2D Game Art Resource Test",
+    "feedUrl": "https://gameyang.github.io/GPT-GenImage2-2D-Game-Art-Resource-Test/home-feed.json",
+    "pageUrl": "https://github.com/Gameyang/GPT-GenImage2-2D-Game-Art-Resource-Test",
+    "sourceUrl": "https://github.com/Gameyang/GPT-GenImage2-2D-Game-Art-Resource-Test",
+    "tags": ["AI", "Game Art", "Pixel Art", "Non-commercial"]
   }
 ]
 ```
 
-상태 값은 다음 중 하나를 사용합니다.
+각 공개 프로젝트는 GitHub Pages에서 `home-feed.json`을 노출합니다.
 
-- `published`: 공개된 프로젝트
-- `draft`: 작업 중인 프로젝트
-- `archived`: 보관된 이전 프로젝트
+```json
+{
+  "schemaVersion": 1,
+  "project": {
+    "id": "project-id",
+    "title": "Project Title",
+    "description": "Public project summary",
+    "pageUrl": "https://gameyang.github.io/project-id/",
+    "sourceUrl": "https://github.com/Gameyang/project-id",
+    "tags": ["AI", "Game"]
+  },
+  "posts": [
+    {
+      "id": "2026-05-25-demo",
+      "date": "2026-05-25",
+      "type": "gallery",
+      "title": "Visual Update",
+      "text": "Short social post text.",
+      "media": [
+        {
+          "type": "image",
+          "url": "assets/example.png",
+          "alt": "Example image"
+        }
+      ],
+      "url": "https://gameyang.github.io/project-id/",
+      "tags": ["Screenshot"]
+    }
+  ]
+}
+```
 
 ## Local Preview
 
@@ -143,7 +165,7 @@ https://gameyang.github.io/home/
 <body data-comments-repo="Gameyang/home" data-comments-theme="github-light" data-comments-label="feed-comment">
 ```
 
-각 프로젝트 댓글은 `feed-<project-id>` 형식의 GitHub Issue에 연결됩니다.
+각 포스트 댓글은 `feed-<project-id>-<post-id>` 형식의 GitHub Issue에 연결됩니다.
 
 ## Codex Skill
 
@@ -155,8 +177,8 @@ skills/home-feed-publisher/
 
 이 skill은 다른 비공개 repo에서 작업할 때 다음 용도로 사용합니다.
 
-- 공개 가능한 개발 진행글을 `draft` 피드 항목으로 추가
-- 완료된 비공개 프로젝트의 공개 빌드 진입점을 `published` 항목으로 추가
+- 공개 가능한 개발 진행글이나 비주얼 포스트를 홈 피드에 연결
+- 완료된 공개 프로젝트의 Pages feed endpoint를 `sources.json`에 등록
 - private repo URL, token, local path, 비공개 노트가 공개 `projects.json`에 들어가지 않도록 점검
 - 비상업 개인 AI 학습용 및 외부 리소스 라이선스 주의 문구 유지
 
@@ -193,9 +215,9 @@ Use $home-feed-publisher to add this private project progress to my public home 
 
 ## Adding a Project
 
-1. 프로젝트의 공개 가능한 빌드 또는 외부 URL을 준비합니다.
-2. 썸네일 이미지를 `public/assets/thumbnails/`에 추가합니다.
-3. `public/data/projects.json`에 프로젝트 항목을 추가합니다.
+1. 프로젝트 repo를 공개하고 GitHub Pages에서 `public/`을 배포합니다.
+2. 프로젝트의 `public/home-feed.json`에 공개 포스트와 미디어를 기록합니다.
+3. 홈의 `public/data/sources.json`에 프로젝트 `feedUrl`을 추가합니다.
 4. 로컬 서버에서 피드, 검색, 필터, 링크를 확인합니다.
 5. `main` 브랜치에 반영하면 GitHub Pages 배포가 갱신됩니다.
 

@@ -328,7 +328,7 @@ img {
 
 .filter-tabs {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 8px;
 }
 
@@ -426,6 +426,28 @@ img {
   color: var(--slate);
 }
 
+.status-pill.image,
+.status-pill.gallery {
+  background: var(--blue-soft);
+  color: var(--blue);
+}
+
+.status-pill.gif {
+  background: var(--green-soft);
+  color: var(--green);
+}
+
+.status-pill.video,
+.status-pill.embed {
+  background: var(--amber-soft);
+  color: var(--amber);
+}
+
+.status-pill.text {
+  background: var(--slate-soft);
+  color: var(--slate);
+}
+
 .post-time {
   margin-top: 4px;
   color: var(--text-muted);
@@ -478,12 +500,69 @@ img {
 }
 
 .post-media img,
+.post-media video,
+.post-media iframe,
 .thumbnail-fallback {
   width: 100%;
   height: 100%;
 }
 
-.post-media img {
+.post-media img,
+.post-media video {
+  object-fit: cover;
+}
+
+.post-media iframe {
+  border: 0;
+}
+
+.video-media {
+  background: #101827;
+}
+
+.video-media video {
+  background: #101827;
+}
+
+.embed-media {
+  aspect-ratio: 4 / 3;
+  background: #101827;
+}
+
+.media-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  background: var(--border);
+}
+
+.media-grid.single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.media-item {
+  position: relative;
+  min-width: 0;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  background: #dfe6ee;
+}
+
+.media-grid.single .media-item {
+  aspect-ratio: 16 / 9;
+}
+
+.media-item img,
+.media-item video,
+.media-item .thumbnail-fallback {
+  width: 100%;
+  height: 100%;
+}
+
+.media-item img,
+.media-item video {
   object-fit: cover;
 }
 
@@ -500,7 +579,7 @@ img {
 
 .post-actions {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
   padding: 12px 16px 16px;
 }
@@ -566,6 +645,11 @@ img {
 .comments-note a {
   color: var(--blue);
   font-weight: 800;
+}
+
+.notice-card {
+  border-color: var(--amber);
+  background: var(--amber-soft);
 }
 
 .activity-block {
@@ -715,6 +799,10 @@ img {
 
   .post-actions .action-button:first-child {
     grid-column: 1 / -1;
+  }
+
+  .media-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
