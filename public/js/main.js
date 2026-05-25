@@ -179,6 +179,7 @@ document.addEventListener('DOMContentLoaded', () => {
       type,
       media,
       url: resolveUrl(post.url || project.pageUrl, baseUrl),
+      linkLabel: post.linkLabel || post.urlLabel || post.linkText || '',
       tags: normalizeTags([...(project.tags || []), ...(post.tags || [])])
     };
   }
@@ -612,11 +613,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const hasText = Boolean(post.text);
     const hasLink = Boolean(post.url && post.url !== '#');
     if (!hasText && !hasLink) return '';
+    const linkLabel = post.linkLabel || '링크 열기';
 
     return `
       <p class="post-description${hasLink ? ' has-link' : ''}">
         ${hasText ? `<span>${escapeHtml(post.text)}</span>` : ''}
-        ${hasLink ? `<a class="post-description-link" href="${escapeAttribute(post.url)}" target="_blank" rel="noopener noreferrer">링크 열기</a>` : ''}
+        ${hasLink ? `<a class="post-description-link" href="${escapeAttribute(post.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(linkLabel)}</a>` : ''}
       </p>
     `;
   }

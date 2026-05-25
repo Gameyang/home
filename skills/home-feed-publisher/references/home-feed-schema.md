@@ -47,11 +47,14 @@ Each public project should expose this file at `public/home-feed.json`.
         }
       ],
       "url": "https://gameyang.github.io/stable-project-slug/",
+      "linkLabel": "Open project",
       "tags": ["Screenshot"]
     }
   ]
 }
 ```
+
+`text` renders as the postcard introduction. `url` renders as a link inside that introduction, and optional `linkLabel` controls the visible link text.
 
 ## Media Types
 

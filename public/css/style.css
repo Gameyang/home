@@ -1057,7 +1057,7 @@ button.media-expand {
 
   .post-description {
     font-size: 0.86rem;
-    -webkit-line-clamp: 1;
+    -webkit-line-clamp: 2;
   }
 
   .tag-list {
@@ -1152,6 +1152,11 @@ button.media-expand {
   .post-description,
   .post-body .tag-list {
     display: none;
+  }
+
+  .post-description.has-link {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
   }
 
   .media-overlay {
@@ -1255,7 +1260,8 @@ button.media-expand {
   }
 
   .post-description {
-    display: none;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
   }
 
   .post-description.has-link {

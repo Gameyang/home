@@ -82,6 +82,7 @@
         }
       ],
       "url": "https://gameyang.github.io/project-id/",
+      "linkLabel": "Open project",
       "tags": ["Screenshot"]
     }
   ]
