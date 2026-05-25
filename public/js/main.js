@@ -277,7 +277,6 @@ document.addEventListener('DOMContentLoaded', () => {
       </div>
 
       <div class="post-actions" aria-label="포스트 작업">
-        ${renderPostActionLink(post)}
         <button class="action-button comments-toggle" type="button" aria-expanded="false" aria-controls="${commentPanelId}">댓글</button>
       </div>
 
@@ -307,12 +306,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     return card;
-  }
-
-  function renderPostActionLink(post) {
-    if (!post.url || post.url === '#') return '';
-
-    return `<a class="action-button primary" href="${escapeAttribute(post.url)}" target="_blank" rel="noopener noreferrer">링크 열기</a>`;
   }
 
   function renderMedia(post) {
