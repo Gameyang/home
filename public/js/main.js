@@ -272,7 +272,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <span>${post.date ? escapeHtml(formatDate(post.date)) : getTypeLabel(post.type)}</span>
         </div>
         <h2 class="post-title">${escapeHtml(post.title)}</h2>
-        ${post.text ? `<p class="post-description">${escapeHtml(post.text)}</p>` : ''}
+        ${renderPostDescription(post)}
         ${renderCompactTags(post.tags)}
       </div>
 
@@ -606,6 +606,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function isVisualMedia(item) {
     return item && ['image', 'gif', 'video'].includes(item.type);
+  }
+
+  function renderPostDescription(post) {
+    const hasText = Boolean(post.text);
+    const hasLink = Boolean(post.url && post.url !== '#');
+    if (!hasText && !hasLink) return '';
+
+    return `
+      <p class="post-description${hasLink ? ' has-link' : ''}">
+        ${hasText ? `<span>${escapeHtml(post.text)}</span>` : ''}
+        ${hasLink ? `<a class="post-description-link" href="${escapeAttribute(post.url)}" target="_blank" rel="noopener noreferrer">링크 열기</a>` : ''}
+      </p>
+    `;
   }
 
   function createNoticeCard(error) {

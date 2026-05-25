@@ -11,6 +11,15 @@ Use this skill to connect a public project repository to the public `Weekly Proj
 
 The home repo renders the social UI. Each public project repo exposes a static `home-feed.json` through GitHub Pages.
 
+## Supported Serving Modes
+
+The home feed must support two serving modes:
+
+- GitHub Pages/public mode: `public/data/sources.json` contains only public `https://` feed endpoints. Each project exposes `public/home-feed.json` through its own GitHub Pages deployment, and media URLs resolve from that public feed URL.
+- Local sibling-project preview mode: `F:\Workspace\home` is served with `home.ps1` or `home.cmd`, which runs `scripts/local-home-server.mjs`. The local server serves the home app at `/` and sibling project `public` folders at `/__local_projects/<project-folder>/`. Local overrides live in ignored `public/data/local-sources.json` using `localProjectDir`.
+
+Never require project files to be copied into the home repo for local preview. Use the sibling project `public` folder mapping instead.
+
 ## Privacy Rules
 
 - Do not expose private repository URLs, tokens, API keys, local absolute paths, internal notes, paid assets, or licensed third-party files unless the user explicitly marks them public-safe.
@@ -68,14 +77,26 @@ node F:\Workspace\home\skills\home-feed-publisher\scripts\upsert-home-feed-sourc
 
 10. Run `home.ps1` or `home.cmd` for local preview when local sibling projects are needed. The launcher uses `scripts/local-home-server.mjs` to serve the home app at `/` and sibling project public folders at `/__local_projects/<project-folder>/`.
 
-11. Verify the public home repo:
+11. Verify both supported serving modes when local mapping changed:
+
+```powershell
+# GitHub Pages/public mode data must stay public-safe.
+node -e "JSON.parse(require('fs').readFileSync('public/data/sources.json','utf8')); console.log('SOURCES_JSON_OK')"
+
+# Local mode should read sibling project public assets through the local server.
+.\home.ps1
+```
+
+When using a normal static server such as `npx serve public`, local sibling mappings are not active unless `scripts/local-home-server.mjs` is used.
+
+12. Verify the public home repo:
 
 ```powershell
 node -e "JSON.parse(require('fs').readFileSync('public/data/sources.json','utf8')); console.log('SOURCES_JSON_OK')"
 node --check public/js/main.js
 ```
 
-12. Summarize what was connected, which optimized media formats were used, and call out any omitted private or unoptimized original assets.
+13. Summarize what was connected, which optimized media formats were used, which serving mode was verified, and call out any omitted private or unoptimized original assets.
 
 ## Schema Reference
 

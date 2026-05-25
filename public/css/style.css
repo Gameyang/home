@@ -620,6 +620,18 @@ button.media-expand {
   -webkit-line-clamp: 2;
 }
 
+.post-description-link {
+  color: var(--blue);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.post-description-link:hover,
+.post-description-link:focus-visible {
+  text-decoration: underline;
+  outline: none;
+}
+
 .tag-list {
   display: flex;
   flex-wrap: wrap;
@@ -1244,6 +1256,10 @@ button.media-expand {
 
   .post-description {
     display: none;
+  }
+
+  .post-description.has-link {
+    display: -webkit-box;
   }
 }
 
