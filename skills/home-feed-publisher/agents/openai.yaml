@@ -1,0 +1,7 @@
+interface:
+  display_name: "Home Feed Publisher"
+  short_description: "Publish private repo progress to home feed"
+  default_prompt: "Use $home-feed-publisher to add a private project progress update to the public home feed."
+
+policy:
+  allow_implicit_invocation: true

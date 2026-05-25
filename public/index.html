@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+
+  <title>Weekly Project Home | 프로젝트 피드</title>
+  <meta name="description" content="주간 프로젝트를 소셜 미디어 피드처럼 둘러보고, 공개된 프로젝트에는 GitHub 기반 댓글을 남길 수 있는 정적 웹 허브입니다.">
+  <meta name="keywords" content="weekly project, portfolio, developer feed, github pages, comments">
+  <meta name="author" content="Gameyang">
+
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Weekly Project Home | 프로젝트 피드">
+  <meta property="og:description" content="주간 프로젝트를 피드 방식으로 모아 보는 GitHub Pages 허브입니다.">
+  <meta property="og:image" content="assets/thumbnails/example-week-01.png">
+
+  <meta property="twitter:card" content="summary_large_image">
+  <meta property="twitter:title" content="Weekly Project Home | 프로젝트 피드">
+  <meta property="twitter:description" content="주간 프로젝트를 피드 방식으로 모아 보는 GitHub Pages 허브입니다.">
+
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body data-comments-repo="Gameyang/home" data-comments-theme="github-light" data-comments-label="feed-comment">
+  <!-- Ambient Particle Canvas Background -->
+  <canvas id="ambient-canvas"></canvas>
+
+  <header class="topbar">
+    <a class="brand" href="./" aria-label="Weekly Project Home">
+      <div class="brand-logo-container">
+        <svg class="brand-logo-svg" viewBox="0 0 100 100" width="42" height="42" aria-hidden="true">
+          <defs>
+            <linearGradient id="logo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="var(--logo-start)" />
+              <stop offset="100%" stop-color="var(--logo-end)" />
+            </linearGradient>
+          </defs>
+          <rect x="5" y="5" width="90" height="90" rx="22" fill="url(#logo-grad)" />
+          <path d="M25 35 L40 68 L50 46 L60 68 L75 35" fill="none" stroke="#ffffff" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+      </div>
+      <span>
+        <strong>Weekly Project Home</strong>
+        <small>@Gameyang</small>
+      </span>
+    </a>
+    <nav class="topnav" aria-label="주요 링크">
+      <a href="#feed">Feed</a>
+      <a href="https://github.com/Gameyang/home" target="_blank" rel="noopener noreferrer">GitHub</a>
+      <button class="theme-toggle" id="theme-toggle-btn" type="button" aria-label="화면 테마 변경">
+        <svg class="sun-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="4"></circle>
+          <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path>
+        </svg>
+        <svg class="moon-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path>
+        </svg>
+      </button>
+    </nav>
+  </header>
+
+  <main class="page-shell">
+    <aside class="profile-panel" aria-label="프로필 요약">
+      <section class="profile-card">
+        <div class="profile-cover"></div>
+        <div class="profile-body">
+          <div class="avatar" aria-hidden="true">G</div>
+          <h1>Weekly Project Home</h1>
+          <p>매주 만든 프로젝트의 공개 빌드, 소스, 진행 상태를 한 피드에서 확인합니다.</p>
+          <a class="profile-link" href="https://github.com/Gameyang" target="_blank" rel="noopener noreferrer">GitHub 프로필</a>
+        </div>
+      </section>
+
+      <section class="stat-list" aria-label="프로젝트 현황">
+        <div>
+          <span id="stat-total">0</span>
+          <small>전체</small>
+        </div>
+        <div>
+          <span id="stat-published">0</span>
+          <small>공개</small>
+        </div>
+        <div>
+          <span id="stat-draft">0</span>
+          <small>작업중</small>
+        </div>
+        <div>
+          <span id="stat-archived">0</span>
+          <small>보관</small>
+        </div>
+      </section>
+    </aside>
+
+    <section class="feed-column" id="feed" aria-label="프로젝트 피드">
+      <section class="composer">
+        <div class="composer-avatar" aria-hidden="true">G</div>
+        <div>
+          <p class="composer-kicker">이번 주 프로젝트 업데이트</p>
+          <p class="composer-text">최신 빌드와 기록을 피드 형태로 정리했습니다.</p>
+        </div>
+      </section>
+
+      <section class="control-bar" aria-label="검색 및 필터">
+        <label class="search-box">
+          <span class="sr-only">프로젝트 검색</span>
+          <input type="search" id="search-input" placeholder="프로젝트 검색" autocomplete="off">
+        </label>
+
+        <div class="filter-tabs" role="group" aria-label="상태 필터">
+          <span class="filter-pill-bg" aria-hidden="true"></span>
+          <button class="filter-btn active" type="button" data-filter="all">전체</button>
+          <button class="filter-btn" type="button" data-filter="published">공개</button>
+          <button class="filter-btn" type="button" data-filter="draft">작업중</button>
+          <button class="filter-btn" type="button" data-filter="archived">보관</button>
+        </div>
+      </section>
+
+      <section class="feed-list" id="projects-feed" aria-live="polite">
+      </section>
+    </section>
+
+    <aside class="activity-panel" aria-label="활동 요약">
+      <section class="activity-block">
+        <h2>피드 운영</h2>
+        <p>GitHub Pages에서 정적 파일만 배포하고, 댓글 데이터는 GitHub Issues에 저장합니다.</p>
+      </section>
+      <section class="activity-block">
+        <h2>상태 기준</h2>
+        <ul>
+          <li><span class="status-dot published"></span>공개: 바로 접속 가능</li>
+          <li><span class="status-dot draft"></span>작업중: 개발 기록만 표시</li>
+          <li><span class="status-dot archived"></span>보관: 이전 결과물</li>
+        </ul>
+      </section>
+    </aside>
+  </main>
+
+  <footer class="footer">
+    <p>&copy; 2026 Weekly Project Home. Built with HTML, CSS, JavaScript.</p>
+  </footer>
+
+  <script src="js/main.js"></script>
+</body>
+</html>

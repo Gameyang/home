@@ -1,0 +1,44 @@
+[
+  {
+    "id": "example-week-01",
+    "title": "WebGL 3D Room Visualizer",
+    "description": "Three.js 기반 미니 인테리어 3D 룸 시각화 도구입니다. 가구 배치, 조명 조절, 카메라 이동을 실험할 수 있는 공개 빌드입니다.",
+    "status": "published",
+    "week": "2026-W22",
+    "date": "2026-05-25",
+    "type": "Interactive demo",
+    "author": "Gameyang",
+    "thumbnail": "assets/thumbnails/example-week-01.png",
+    "url": "projects/example-week-01/",
+    "source": "https://github.com/Gameyang/webgl-3d-room",
+    "tags": ["WebGL", "Three.js", "Interior"]
+  },
+  {
+    "id": "pixel-sandbox",
+    "title": "Pixel Art Sprite Editor",
+    "description": "복고풍 게임 캐릭터 리소스를 만들기 위한 픽셀 아트 에디터입니다. 프레임 애니메이션과 팔레트 편집 흐름을 개발 중입니다.",
+    "status": "draft",
+    "week": "2026-W23",
+    "date": "2026-05-25",
+    "type": "Work in progress",
+    "author": "Gameyang",
+    "thumbnail": "assets/thumbnails/pixel-sandbox.png",
+    "url": "#",
+    "source": "https://github.com/Gameyang/pixel-art-editor",
+    "tags": ["Pixel Art", "Canvas", "Editor"]
+  },
+  {
+    "id": "legacy-retro-game",
+    "title": "Classic Brick Breaker",
+    "description": "HTML5 Canvas로 만든 클래식 벽돌 깨기 게임의 보관 버전입니다. 기본 물리 처리, 점수 시스템, 키보드 조작을 포함합니다.",
+    "status": "archived",
+    "week": "2026-W20",
+    "date": "2026-05-11",
+    "type": "Archived build",
+    "author": "Gameyang",
+    "thumbnail": "assets/thumbnails/legacy-retro-game.png",
+    "url": "projects/legacy-retro-game/",
+    "source": "https://github.com/Gameyang/classic-brick-breaker",
+    "tags": ["Canvas", "Game", "Archive"]
+  }
+]
