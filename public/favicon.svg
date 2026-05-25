@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Weekly Project Home icon</title>
+  <desc id="desc">A rounded blue and green icon with a white W mark.</desc>
+  <defs>
+    <linearGradient id="bg" x1="72" y1="72" x2="440" y2="440" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2563eb"/>
+      <stop offset="1" stop-color="#0f9f6e"/>
+    </linearGradient>
+    <linearGradient id="shine" x1="128" y1="48" x2="384" y2="464" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ffffff" stop-opacity=".28"/>
+      <stop offset=".58" stop-color="#ffffff" stop-opacity=".04"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="22" stdDeviation="24" flood-color="#0f172a" flood-opacity=".22"/>
+    </filter>
+  </defs>
+  <rect x="48" y="48" width="416" height="416" rx="112" fill="url(#bg)" filter="url(#shadow)"/>
+  <path d="M76 156c78-34 160-34 238 0s88 34 122 18v212c-36 16-76 16-120-2-76-34-158-34-240 0V156Z" fill="#ffffff" opacity=".12"/>
+  <path d="M132 171h248" stroke="#ffffff" stroke-opacity=".18" stroke-width="18" stroke-linecap="round"/>
+  <path d="M132 333h248" stroke="#ffffff" stroke-opacity=".18" stroke-width="18" stroke-linecap="round"/>
+  <path d="M132 183l74 180 50-126 50 126 74-180" fill="none" stroke="#ffffff" stroke-width="46" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="396" cy="128" r="28" fill="#ffffff" opacity=".9"/>
+  <rect x="48" y="48" width="416" height="416" rx="112" fill="url(#shine)"/>
+</svg>
