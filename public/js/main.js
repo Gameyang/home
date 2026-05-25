@@ -14,6 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let sourceErrors = [];
   let visibleMediaItems = [];
   let viewerIndex = 0;
+  const tapMoveTolerance = 10;
   const viewer = createMediaViewer();
 
   initTheme();
@@ -290,14 +291,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     setupGalleryGridLayout(card);
 
-    card.querySelectorAll('[data-viewer-index]').forEach(button => {
-      button.addEventListener('click', () => {
-        const index = Number(button.dataset.viewerIndex);
-        if (Number.isInteger(index) && index >= 0) {
-          openViewer(index);
-        }
-      });
-    });
+    card.querySelectorAll('[data-viewer-index]').forEach(bindViewerTrigger);
 
     const commentsButton = card.querySelector('.comments-toggle');
     const commentsPanel = card.querySelector('.comments-panel');
@@ -533,6 +527,53 @@ document.addEventListener('DOMContentLoaded', () => {
       item.postId === post.id &&
       item.mediaIndex === mediaIndex
     ));
+  }
+
+  function bindViewerTrigger(button) {
+    let startX = 0;
+    let startY = 0;
+    let trackingPointer = false;
+    let suppressClick = false;
+
+    button.addEventListener('pointerdown', event => {
+      if (typeof event.button === 'number' && event.button !== 0) return;
+      startX = event.clientX;
+      startY = event.clientY;
+      trackingPointer = true;
+      suppressClick = false;
+    });
+
+    button.addEventListener('pointermove', event => {
+      if (!trackingPointer) return;
+      const deltaX = event.clientX - startX;
+      const deltaY = event.clientY - startY;
+      if (Math.hypot(deltaX, deltaY) > tapMoveTolerance) {
+        suppressClick = true;
+      }
+    });
+
+    button.addEventListener('pointerup', () => {
+      trackingPointer = false;
+    });
+
+    button.addEventListener('pointercancel', () => {
+      trackingPointer = false;
+      suppressClick = true;
+    });
+
+    button.addEventListener('click', event => {
+      if (suppressClick) {
+        event.preventDefault();
+        event.stopPropagation();
+        suppressClick = false;
+        return;
+      }
+
+      const index = Number(button.dataset.viewerIndex);
+      if (Number.isInteger(index) && index >= 0) {
+        openViewer(index);
+      }
+    });
   }
 
   function buildViewerItems(postList) {
