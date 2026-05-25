@@ -52,7 +52,6 @@
     </a>
     <nav class="topnav" aria-label="주요 링크">
       <a href="#feed">Feed</a>
-      <a href="https://github.com/Gameyang/home" target="_blank" rel="noopener noreferrer">GitHub</a>
       <button class="theme-toggle" id="theme-toggle-btn" type="button" aria-label="화면 테마 변경">
         <svg class="sun-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="4"></circle>
@@ -66,80 +65,10 @@
   </header>
 
   <main class="page-shell">
-    <aside class="profile-panel" aria-label="프로필 요약">
-      <section class="profile-card">
-        <div class="profile-cover"></div>
-        <div class="profile-body">
-          <div class="avatar" aria-hidden="true">G</div>
-          <h1>Weekly Project Home</h1>
-          <p>공개 프로젝트가 노출한 이미지, GIF, 영상, 미니게임 포스트를 한 피드에서 확인합니다.</p>
-          <a class="profile-link" href="https://github.com/Gameyang" target="_blank" rel="noopener noreferrer">GitHub 프로필</a>
-        </div>
-      </section>
-
-      <section class="stat-list" aria-label="프로젝트 현황">
-        <div>
-          <span id="stat-total">0</span>
-          <small>포스트</small>
-        </div>
-        <div>
-          <span id="stat-published">0</span>
-          <small>프로젝트</small>
-        </div>
-        <div>
-          <span id="stat-draft">0</span>
-          <small>이미지</small>
-        </div>
-        <div>
-          <span id="stat-archived">0</span>
-          <small>데모/영상</small>
-        </div>
-      </section>
-    </aside>
-
     <section class="feed-column" id="feed" aria-label="프로젝트 피드">
-      <section class="composer">
-        <div class="composer-avatar" aria-hidden="true">G</div>
-        <div>
-          <p class="composer-kicker">공개 프로젝트 비주얼 피드</p>
-          <p class="composer-text">각 프로젝트가 제공하는 공개 feed JSON을 모아 이미지와 데모 중심으로 보여줍니다.</p>
-        </div>
-      </section>
-
-      <section class="control-bar" aria-label="검색 및 필터">
-        <label class="search-box">
-          <span class="sr-only">프로젝트 검색</span>
-          <input type="search" id="search-input" placeholder="포스트, 프로젝트, 태그 검색" autocomplete="off">
-        </label>
-
-        <div class="filter-tabs" role="group" aria-label="미디어 필터">
-          <span class="filter-pill-bg" aria-hidden="true"></span>
-          <button class="filter-btn active" type="button" data-filter="all">전체</button>
-          <button class="filter-btn" type="button" data-filter="image">이미지</button>
-          <button class="filter-btn" type="button" data-filter="gif">GIF</button>
-          <button class="filter-btn" type="button" data-filter="video">영상</button>
-          <button class="filter-btn" type="button" data-filter="embed">데모</button>
-        </div>
-      </section>
-
       <section class="feed-list" id="projects-feed" aria-live="polite">
       </section>
     </section>
-
-    <aside class="activity-panel" aria-label="활동 요약">
-      <section class="activity-block">
-        <h2>피드 운영</h2>
-        <p>홈은 소셜 UI만 담당하고, 각 공개 프로젝트가 제공하는 정적 JSON을 읽어 타임라인을 구성합니다.</p>
-      </section>
-      <section class="activity-block">
-        <h2>미디어 기준</h2>
-        <ul>
-          <li><span class="status-dot published"></span>이미지: 스크린샷과 결과물</li>
-          <li><span class="status-dot draft"></span>GIF/영상: 움직이는 결과</li>
-          <li><span class="status-dot archived"></span>데모: 미니게임과 임베드</li>
-        </ul>
-      </section>
-    </aside>
   </main>
 
   <footer class="footer">

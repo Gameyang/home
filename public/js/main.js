@@ -1,11 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
   const feedContainer = document.getElementById('projects-feed');
-  const searchInput = document.getElementById('search-input');
-  const filterButtons = document.querySelectorAll('.filter-btn');
-  const statTotal = document.getElementById('stat-total');
-  const statPublished = document.getElementById('stat-published');
-  const statDraft = document.getElementById('stat-draft');
-  const statArchived = document.getElementById('stat-archived');
   const themeToggle = document.getElementById('theme-toggle-btn');
   const commentConfig = {
     repo: document.body.dataset.commentsRepo || '',
@@ -16,8 +10,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const sourcesUrl = 'data/sources.json';
   let posts = [];
   let sourceErrors = [];
-  let currentFilter = 'all';
-  let searchQuery = '';
   let visibleMediaItems = [];
   let viewerIndex = 0;
   const viewer = createMediaViewer();
@@ -25,22 +17,6 @@ document.addEventListener('DOMContentLoaded', () => {
   initTheme();
   initAmbientCanvas();
   loadSocialFeed();
-
-  filterButtons.forEach(button => {
-    button.addEventListener('click', () => {
-      filterButtons.forEach(item => item.classList.remove('active'));
-      button.classList.add('active');
-      currentFilter = button.dataset.filter || 'all';
-      applyFilters();
-    });
-  });
-
-  if (searchInput) {
-    searchInput.addEventListener('input', event => {
-      searchQuery = event.target.value;
-      applyFilters();
-    });
-  }
 
   async function loadSocialFeed() {
     renderLoadingState();
@@ -75,13 +51,11 @@ document.addEventListener('DOMContentLoaded', () => {
         return 0;
       });
 
-      updateStats(posts);
-      applyFilters();
+      renderFeed(posts);
     } catch (error) {
       console.error(error);
       posts = [];
       sourceErrors = [{ id: 'feed-config', title: 'Feed configuration', message: error.message }];
-      updateStats(posts);
       renderErrorState(error.message);
     }
   }
@@ -192,52 +166,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  function updateStats(postList) {
-    const projectIds = new Set(postList.map(post => post.project.id));
-    const visualCount = postList.reduce((count, post) => count + post.media.filter(isVisualMedia).length, 0);
-    const demoCount = postList.filter(post => post.type === 'embed' || post.media.some(item => item.type === 'video')).length;
-
-    statTotal.textContent = postList.length;
-    statPublished.textContent = projectIds.size;
-    statDraft.textContent = visualCount;
-    statArchived.textContent = demoCount;
-  }
-
-  function applyFilters() {
-    const query = searchQuery.trim().toLowerCase();
-    let filteredPosts = posts;
-
-    if (currentFilter !== 'all') {
-      filteredPosts = filteredPosts.filter(post => matchesFilter(post, currentFilter));
-    }
-
-    if (query) {
-      filteredPosts = filteredPosts.filter(post => {
-        const searchable = [
-          post.project.title,
-          post.project.description,
-          post.title,
-          post.text,
-          post.date,
-          post.type,
-          ...post.tags
-        ].join(' ').toLowerCase();
-
-        return searchable.includes(query);
-      });
-    }
-
-    renderFeed(filteredPosts);
-  }
-
-  function matchesFilter(post, filter) {
-    if (filter === 'image') return ['image', 'gallery'].includes(post.type);
-    if (filter === 'gif') return post.type === 'gif' || post.media.some(item => item.type === 'gif');
-    if (filter === 'video') return post.type === 'video' || post.media.some(item => item.type === 'video');
-    if (filter === 'embed') return post.type === 'embed';
-    return post.type === filter;
-  }
-
   function renderFeed(postList) {
     if (!feedContainer) return;
 
@@ -281,8 +209,6 @@ document.addEventListener('DOMContentLoaded', () => {
       </div>
 
       <div class="post-actions" aria-label="포스트 작업">
-        ${renderLinkButton(post.url, '열기', 'primary')}
-        ${renderLinkButton(post.project.sourceUrl, '소스')}
         <button class="action-button comments-toggle" type="button" aria-expanded="false" aria-controls="${commentPanelId}">댓글</button>
       </div>
 
@@ -294,6 +220,8 @@ document.addEventListener('DOMContentLoaded', () => {
         image.replaceWith(createFallbackElement(post.title));
       });
     });
+
+    setupGalleryGridLayout(card);
 
     card.querySelectorAll('[data-viewer-index]').forEach(button => {
       button.addEventListener('click', () => {
@@ -312,7 +240,7 @@ document.addEventListener('DOMContentLoaded', () => {
       commentsPanel.hidden = isExpanded;
 
       if (!isExpanded && !commentsPanel.dataset.loaded) {
-        loadComments(post, commentsPanel);
+        loadComments(post, commentsPanel, commentsButton);
       }
     });
 
@@ -367,7 +295,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function renderMediaGrid(mediaItems, post) {
     return `
-      <div class="media-showcase gallery-showcase" style="--gallery-tile-min: ${getGalleryTileMin(mediaItems.length)}">
+      <div class="media-showcase gallery-showcase">
         <div class="gallery-header">
           <span class="status-pill ${escapeAttribute(post.type)}">${getTypeLabel(post.type)}</span>
           <span>${mediaItems.length}장</span>
@@ -406,11 +334,100 @@ document.addEventListener('DOMContentLoaded', () => {
     `;
   }
 
-  function getGalleryTileMin(count) {
-    if (count <= 2) return '168px';
-    if (count <= 4) return '140px';
-    if (count <= 9) return '112px';
-    return '88px';
+  function setupGalleryGridLayout(card) {
+    card.querySelectorAll('.gallery-grid').forEach(grid => {
+      const mediaElements = Array.from(grid.querySelectorAll('img, video'));
+      if (mediaElements.length === 0) return;
+
+      const syncLayout = () => {
+        const dimensions = mediaElements
+          .map(getMediaDimensions)
+          .filter(Boolean);
+
+        if (dimensions.length === 0) return;
+
+        applyGalleryGridLayout(grid, chooseGalleryGridLayout(grid, dimensions, mediaElements.length), dimensions);
+      };
+
+      mediaElements.forEach(media => {
+        if (getMediaDimensions(media)) return;
+        media.addEventListener(media.tagName === 'VIDEO' ? 'loadedmetadata' : 'load', syncLayout, { once: true });
+      });
+
+      syncLayout();
+      window.addEventListener('resize', syncLayout);
+    });
+  }
+
+  function getMediaDimensions(media) {
+    const width = media.naturalWidth || media.videoWidth || 0;
+    const height = media.naturalHeight || media.videoHeight || 0;
+    if (!width || !height) return null;
+    return { width, height, ratio: width / height };
+  }
+
+  function chooseGalleryGridLayout(grid, dimensions, totalCount) {
+    const ratios = dimensions.map(item => item.ratio).sort((a, b) => a - b);
+    const medianRatio = ratios[Math.floor(ratios.length / 2)] || 1;
+    const orientation = getGalleryOrientation(ratios);
+    const baseTileRatio = getGalleryTileRatio(medianRatio, orientation);
+    const gridWidth = Math.max(grid.clientWidth || grid.getBoundingClientRect().width || 0, 320);
+    const isMobile = window.matchMedia('(max-width: 760px)').matches;
+    const maxColumns = isMobile ? Math.min(2, totalCount) : Math.min(3, totalCount);
+    const maxPreviewHeight = Math.min(window.innerHeight * (isMobile ? 0.62 : 0.68), isMobile ? 560 : 680);
+    const usablePreviewHeight = Math.max(1, maxPreviewHeight - 6);
+    const gap = 2;
+
+    let best = null;
+    for (let columns = 1; columns <= maxColumns; columns += 1) {
+      const rows = Math.ceil(totalCount / columns);
+      const tileWidth = (gridWidth - gap * (columns - 1)) / columns;
+      const requiredTileRatio = (tileWidth * rows + gap * (rows - 1)) / usablePreviewHeight;
+      const tileRatio = Math.max(baseTileRatio, requiredTileRatio);
+      const tileHeight = tileWidth / tileRatio;
+      const gridHeight = rows * tileHeight + gap * (rows - 1);
+      let score = 0;
+
+      if (gridHeight > maxPreviewHeight) score += (gridHeight - maxPreviewHeight) * 2;
+      if (tileWidth < 132) score += (132 - tileWidth) * 3;
+      if (totalCount >= 5) score += Math.abs(columns - maxColumns) * 80;
+      if (totalCount >= 3 && totalCount <= 4) score += Math.abs(columns - 2) * 70;
+      if (orientation === 'wide' && columns === maxColumns && totalCount <= 6) score += 45;
+      if (orientation === 'portrait' && columns < maxColumns && totalCount >= 5) score += 50;
+
+      const candidate = { columns, rows, tileRatio: Math.round(tileRatio * 1000) / 1000, orientation, score };
+      if (!best || candidate.score < best.score) best = candidate;
+    }
+
+    return best || { columns: 1, rows: totalCount, tileRatio: baseTileRatio, orientation };
+  }
+
+  function getGalleryOrientation(ratios) {
+    const wideCount = ratios.filter(ratio => ratio >= 1.25).length;
+    const portraitCount = ratios.filter(ratio => ratio <= 0.82).length;
+    const threshold = Math.max(1, Math.ceil(ratios.length * 0.6));
+
+    if (wideCount >= threshold) return 'wide';
+    if (portraitCount >= threshold) return 'portrait';
+    return 'mixed';
+  }
+
+  function getGalleryTileRatio(medianRatio, orientation) {
+    if (orientation === 'wide') return medianRatio >= 2 ? 21 / 9 : 16 / 9;
+    if (orientation === 'portrait') return medianRatio <= 0.7 ? 3 / 4 : 4 / 5;
+    return 1;
+  }
+
+  function applyGalleryGridLayout(grid, layout, dimensions) {
+    grid.style.setProperty('--gallery-columns', String(layout.columns));
+    grid.style.setProperty('--gallery-tile-ratio', String(layout.tileRatio));
+    grid.dataset.layout = `${layout.columns}x${layout.rows}`;
+    grid.dataset.orientation = layout.orientation;
+
+    grid.querySelectorAll('.gallery-thumb').forEach((thumb, index) => {
+      const ratio = dimensions[index]?.ratio || 1;
+      thumb.dataset.orientation = ratio >= 1.25 ? 'wide' : ratio <= 0.82 ? 'portrait' : 'square';
+    });
   }
 
   function renderMediaSlide(item, post, mediaIndex, displayIndex, total) {
@@ -478,17 +495,6 @@ document.addEventListener('DOMContentLoaded', () => {
     return item && ['image', 'gif', 'video'].includes(item.type);
   }
 
-  function renderLinkButton(url, label, variant = '') {
-    if (!url || url === '#') {
-      return `<span class="action-button disabled" aria-disabled="true">${escapeHtml(label)}</span>`;
-    }
-
-    const external = /^https?:\/\//i.test(url);
-    return `
-      <a class="action-button ${escapeAttribute(variant)}" href="${escapeAttribute(url)}" ${external ? 'target="_blank" rel="noopener noreferrer"' : ''}>${escapeHtml(label)}</a>
-    `;
-  }
-
   function createNoticeCard(error) {
     const card = document.createElement('article');
     card.className = 'post-card notice-card';
@@ -501,9 +507,11 @@ document.addEventListener('DOMContentLoaded', () => {
     return card;
   }
 
-  function loadComments(post, container) {
+  function loadComments(post, container, button) {
     container.dataset.loaded = 'true';
     container.innerHTML = '';
+    button.disabled = true;
+    button.textContent = '댓글 로딩';
 
     if (!commentConfig.repo) {
       container.innerHTML = `
@@ -511,6 +519,8 @@ document.addEventListener('DOMContentLoaded', () => {
           댓글 저장소가 설정되지 않았습니다. <code>body[data-comments-repo]</code>에 GitHub 저장소를 지정해 주세요.
         </p>
       `;
+      button.disabled = false;
+      button.textContent = '댓글';
       return;
     }
 
@@ -522,6 +532,20 @@ document.addEventListener('DOMContentLoaded', () => {
     script.setAttribute('theme', commentConfig.theme);
     script.setAttribute('crossorigin', 'anonymous');
     script.async = true;
+    script.addEventListener('load', () => {
+      button.disabled = false;
+      button.textContent = '댓글';
+    });
+    script.addEventListener('error', () => {
+      delete container.dataset.loaded;
+      button.disabled = false;
+      button.textContent = '댓글';
+      container.innerHTML = `
+        <p class="comments-note">
+          댓글을 불러오지 못했습니다. 네트워크 또는 utterances 설정을 확인해 주세요.
+        </p>
+      `;
+    });
 
     const note = document.createElement('p');
     note.className = 'comments-note';
@@ -575,9 +599,6 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="viewer-title"></div>
             <div class="viewer-meta"></div>
           </div>
-          <div class="viewer-actions">
-            <a class="viewer-link" href="#" target="_blank" rel="noopener noreferrer">원본</a>
-          </div>
         </footer>
       </div>
     `;
@@ -601,6 +622,8 @@ document.addEventListener('DOMContentLoaded', () => {
     dialog.addEventListener('close', () => {
       document.body.classList.remove('viewer-open');
     });
+
+    window.addEventListener('resize', syncViewerMediaFit);
 
     dialog.addEventListener('keydown', event => {
       if (event.key === 'ArrowLeft') {
@@ -646,6 +669,7 @@ document.addEventListener('DOMContentLoaded', () => {
       viewer.setAttribute('open', '');
     }
 
+    requestAnimationFrame(syncViewerMediaFit);
     viewer.querySelector('.viewer-stage')?.focus({ preventScroll: true });
   }
 
@@ -671,7 +695,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const stage = viewer.querySelector('.viewer-stage');
     const title = viewer.querySelector('.viewer-title');
     const meta = viewer.querySelector('.viewer-meta');
-    const link = viewer.querySelector('.viewer-link');
     const navButtons = viewer.querySelectorAll('.viewer-nav');
     const mediaLabel = escapeAttribute(item.alt || item.postTitle);
 
@@ -683,6 +706,11 @@ document.addEventListener('DOMContentLoaded', () => {
       `
       : `<img src="${escapeAttribute(item.url)}" alt="${mediaLabel}">`;
 
+    const media = stage.querySelector('img, video');
+    media?.classList.add('viewer-fit-fill');
+    media?.addEventListener(item.type === 'video' ? 'loadedmetadata' : 'load', syncViewerMediaFit, { once: true });
+    requestAnimationFrame(syncViewerMediaFit);
+
     title.textContent = item.postTitle;
     meta.textContent = [
       `${viewerIndex + 1} / ${visibleMediaItems.length}`,
@@ -690,17 +718,43 @@ document.addEventListener('DOMContentLoaded', () => {
       item.date ? formatDate(item.date) : ''
     ].filter(Boolean).join(' · ');
 
-    if (item.postUrl && item.postUrl !== '#') {
-      link.href = item.postUrl;
-      link.hidden = false;
-    } else {
-      link.hidden = true;
-    }
-
     viewer.classList.toggle('is-single', visibleMediaItems.length < 2);
     navButtons.forEach(button => {
       button.disabled = visibleMediaItems.length < 2;
     });
+  }
+
+  function syncViewerMediaFit() {
+    if (!viewer.open) return;
+
+    const stage = viewer.querySelector('.viewer-stage');
+    const media = stage?.querySelector('img, video');
+    if (!stage || !media) return;
+
+    const stageRect = stage.getBoundingClientRect();
+    const mediaWidth = media.naturalWidth || media.videoWidth;
+    const mediaHeight = media.naturalHeight || media.videoHeight;
+    if (!stageRect.width || !stageRect.height || !mediaWidth || !mediaHeight) return;
+
+    const stageRatio = stageRect.width / stageRect.height;
+    const mediaRatio = mediaWidth / mediaHeight;
+    let fitWidth = stageRect.width;
+    let fitHeight = stageRect.height;
+
+    media.classList.remove('viewer-fit-width', 'viewer-fit-height', 'viewer-fit-fill');
+
+    if (Math.abs(stageRatio - mediaRatio) < 0.01) {
+      media.classList.add('viewer-fit-fill');
+    } else if (mediaRatio > stageRatio) {
+      media.classList.add('viewer-fit-width');
+      fitHeight = fitWidth / mediaRatio;
+    } else {
+      media.classList.add('viewer-fit-height');
+      fitWidth = fitHeight * mediaRatio;
+    }
+
+    media.style.width = `${Math.floor(Math.max(1, fitWidth))}px`;
+    media.style.height = `${Math.floor(Math.max(1, fitHeight))}px`;
   }
 
   function renderLoadingState() {
@@ -720,21 +774,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const emptyState = document.createElement('section');
     emptyState.className = 'empty-state';
     emptyState.innerHTML = `
-      <h2>${hasWarnings ? '표시할 포스트가 없습니다' : '검색 결과가 없습니다'}</h2>
-      <p>${hasWarnings ? '연결된 공개 피드 URL과 GitHub Pages 배포 상태를 확인해 주세요.' : '검색어를 바꾸거나 다른 미디어 필터를 선택해 주세요.'}</p>
-      <button class="reset-btn" type="button" id="reset-filters-btn">필터 초기화</button>
+      <h2>${hasWarnings ? '표시할 포스트가 없습니다' : '아직 표시할 포스트가 없습니다'}</h2>
+      <p>${hasWarnings ? '연결된 공개 피드 URL과 GitHub Pages 배포 상태를 확인해 주세요.' : '공개 프로젝트 feed JSON에 포스트를 추가해 주세요.'}</p>
     `;
     feedContainer.appendChild(emptyState);
-
-    document.getElementById('reset-filters-btn')?.addEventListener('click', () => {
-      currentFilter = 'all';
-      searchQuery = '';
-      if (searchInput) searchInput.value = '';
-      filterButtons.forEach(button => {
-        button.classList.toggle('active', button.dataset.filter === 'all');
-      });
-      applyFilters();
-    });
   }
 
   function renderErrorState(message) {
