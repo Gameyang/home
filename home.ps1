@@ -1,6 +1,7 @@
 # Weekly Project Home - Local Server Launcher (PowerShell)
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $publicDir = Join-Path $scriptDir "public"
+$localServerScript = Join-Path $scriptDir "scripts\local-home-server.mjs"
 
 if (-not (Test-Path $publicDir)) {
   Write-Error "public directory not found at $publicDir"
@@ -9,6 +10,27 @@ if (-not (Test-Path $publicDir)) {
 
 # Change directory to public to serve static files correctly
 Set-Location $publicDir
+
+# Prefer the local-aware Node server when available. It serves this repo's
+# public folder at / and sibling project public folders at /__local_projects/.
+$node = Get-Command node -ErrorAction SilentlyContinue
+if ($node -and (Test-Path $localServerScript)) {
+  Write-Host ""
+  Write-Host "=============================================" -ForegroundColor Magenta
+  Write-Host "      Weekly Project Home Local Server       " -ForegroundColor Magenta -NoNewline
+  Write-Host " [v1.1]" -ForegroundColor DarkGray
+  Write-Host "=============================================" -ForegroundColor Magenta
+  Write-Host "  -> Serving folder: $publicDir" -ForegroundColor Gray
+  Write-Host "  -> Local project route: /__local_projects/<project-folder>/" -ForegroundColor Gray
+  Write-Host "  -> Launching browser to http://127.0.0.1:4000 ..." -ForegroundColor Green
+  Write-Host "  -> Press Ctrl+C in this terminal to stop." -ForegroundColor DarkYellow
+  Write-Host "=============================================" -ForegroundColor Magenta
+  Write-Host ""
+
+  Start-Process powershell -ArgumentList "-Command", "Start-Sleep -m 800; Start-Process 'http://127.0.0.1:4000'" -WindowStyle Hidden
+  & $node.Path $localServerScript --port 4000
+  exit $LASTEXITCODE
+}
 
 # Find Python executable
 $python = Get-Command python -ErrorAction SilentlyContinue

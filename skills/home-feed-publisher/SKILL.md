@@ -15,6 +15,7 @@ The home repo renders the social UI. Each public project repo exposes a static `
 
 - Do not expose private repository URLs, tokens, API keys, local absolute paths, internal notes, paid assets, or licensed third-party files unless the user explicitly marks them public-safe.
 - Register only public `https://` URLs in `public/data/sources.json`.
+- For local-only preview overrides, use ignored `public/data/local-sources.json`; do not put local absolute paths or localhost URLs in public `sources.json`.
 - Each project feed should include only public-safe visual posts: images, GIFs, videos, demo embeds, and short promotional text.
 - Mention non-commercial/personal AI-learning context when license risk or third-party resources are material.
 
@@ -54,14 +55,27 @@ node F:\Workspace\home\skills\home-feed-publisher\scripts\upsert-home-feed-sourc
   --tags "AI,Game,Non-commercial"
 ```
 
-9. Verify the public home repo:
+9. For local sibling-project preview, create or update `public/data/local-sources.json` in the home repo. Keep this file ignored by git. Use `localProjectDir` to point at a project folder that sits beside `F:\Workspace\home`; the local server maps it to that project's `public` directory:
+
+```json
+[
+  {
+    "id": "my-project",
+    "localProjectDir": "my-project"
+  }
+]
+```
+
+10. Run `home.ps1` or `home.cmd` for local preview when local sibling projects are needed. The launcher uses `scripts/local-home-server.mjs` to serve the home app at `/` and sibling project public folders at `/__local_projects/<project-folder>/`.
+
+11. Verify the public home repo:
 
 ```powershell
 node -e "JSON.parse(require('fs').readFileSync('public/data/sources.json','utf8')); console.log('SOURCES_JSON_OK')"
 node --check public/js/main.js
 ```
 
-10. Summarize what was connected, which optimized media formats were used, and call out any omitted private or unoptimized original assets.
+12. Summarize what was connected, which optimized media formats were used, and call out any omitted private or unoptimized original assets.
 
 ## Schema Reference
 

@@ -8,6 +8,8 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const sourcesUrl = 'data/sources.json';
+  const localSourcesUrl = 'data/local-sources.json';
+  const localServerInfoUrl = '.local-home-server.json';
   let posts = [];
   let sourceErrors = [];
   let visibleMediaItems = [];
@@ -22,7 +24,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderLoadingState();
 
     try {
-      const sources = await fetchJson(sourcesUrl);
+      const sources = await loadSources();
       if (!Array.isArray(sources) || sources.length === 0) {
         throw new Error('연결된 공개 프로젝트 피드가 없습니다.');
       }
@@ -79,9 +81,70 @@ document.addEventListener('DOMContentLoaded', () => {
   async function fetchJson(url) {
     const response = await fetch(url, { cache: 'no-store' });
     if (!response.ok) {
-      throw new Error(`${url} 응답 오류: ${response.status}`);
+      const error = new Error(`${url} 응답 오류: ${response.status}`);
+      error.status = response.status;
+      throw error;
     }
     return response.json();
+  }
+
+  async function loadSources() {
+    const publicSources = await fetchJson(sourcesUrl);
+    if (!isLocalPreview()) return publicSources;
+
+    const localSources = await fetchOptionalJson(localSourcesUrl);
+    if (!Array.isArray(localSources) || localSources.length === 0) {
+      return publicSources;
+    }
+
+    const localServerInfo = await fetchOptionalJson(localServerInfoUrl);
+    return mergeSources(publicSources, localSources)
+      .map(source => applyLocalSourceMapping(source, localServerInfo));
+  }
+
+  async function fetchOptionalJson(url) {
+    try {
+      return await fetchJson(url);
+    } catch (error) {
+      if (error.status !== 404) {
+        console.warn(`Optional local source mapping ignored: ${error.message}`);
+      }
+      return null;
+    }
+  }
+
+  function isLocalPreview() {
+    return ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
+  }
+
+  function mergeSources(publicSources, localSources) {
+    const merged = new Map();
+
+    (Array.isArray(publicSources) ? publicSources : []).forEach(source => {
+      if (!source?.id) return;
+      merged.set(source.id, { ...source });
+    });
+
+    localSources.forEach(source => {
+      if (!source?.id) return;
+      merged.set(source.id, { ...(merged.get(source.id) || {}), ...source });
+    });
+
+    return [...merged.values()];
+  }
+
+  function applyLocalSourceMapping(source, localServerInfo) {
+    const canUseLocalProjectDir = Boolean(localServerInfo?.localProjectRoute);
+    const localProjectBase = source.localProjectDir && canUseLocalProjectDir
+      ? `/__local_projects/${encodeURIComponent(source.localProjectDir)}/`
+      : '';
+
+    return {
+      ...source,
+      feedUrl: source.localFeedUrl || (localProjectBase ? `${localProjectBase}home-feed.json` : source.feedUrl),
+      pageUrl: source.localPageUrl || (localProjectBase || source.pageUrl),
+      sourceUrl: source.localSourceUrl || source.sourceUrl
+    };
   }
 
   function normalizeProject(project, source, baseUrl) {
@@ -190,7 +253,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function createPostCard(post) {
     const card = document.createElement('article');
-    card.className = `post-card ${escapeAttribute(post.type)}`;
+    const visualMedia = post.media.filter(isVisualMedia);
+    const usesMediaGrid = shouldRenderMediaGrid(post, visualMedia);
+    const cardClasses = ['post-card', post.type];
+    if (usesMediaGrid && post.type !== 'gallery') cardClasses.push('gallery');
+    card.className = cardClasses.map(escapeAttribute).join(' ');
     card.dataset.postId = post.id;
 
     const commentPanelId = `comments-${post.project.id}-${post.id}`;
@@ -265,7 +332,7 @@ document.addEventListener('DOMContentLoaded', () => {
       .map((item, mediaIndex) => ({ item, mediaIndex }))
       .filter(({ item }) => isVisualMedia(item));
 
-    if (post.type === 'gallery' && mediaItems.length > 0) {
+    if (shouldRenderMediaGrid(post, mediaItems)) {
       return renderMediaGrid(mediaItems, post);
     }
 
@@ -305,6 +372,10 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
       </div>
     `;
+  }
+
+  function shouldRenderMediaGrid(post, mediaItems) {
+    return mediaItems.length > 1 || (post.type === 'gallery' && mediaItems.length > 0);
   }
 
   function renderGalleryTile(item, post, mediaIndex, displayIndex, total) {
@@ -390,6 +461,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (gridHeight > maxPreviewHeight) score += (gridHeight - maxPreviewHeight) * 2;
       if (tileWidth < 132) score += (132 - tileWidth) * 3;
+      if (totalCount === 2) score += Math.abs(columns - maxColumns) * 70;
       if (totalCount >= 5) score += Math.abs(columns - maxColumns) * 80;
       if (totalCount >= 3 && totalCount <= 4) score += Math.abs(columns - 2) * 70;
       if (orientation === 'wide' && columns === maxColumns && totalCount <= 6) score += 45;
