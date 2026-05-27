@@ -15,6 +15,18 @@ document.addEventListener('DOMContentLoaded', () => {
   let visibleMediaItems = [];
   let viewerIndex = 0;
   const tapMoveTolerance = 10;
+  const viewerZoomMin = 1;
+  const viewerZoomMax = 8;
+  const viewerWheelZoomSensitivity = 0.0016;
+  const viewerZoomState = {
+    scale: viewerZoomMin,
+    translateX: 0,
+    translateY: 0,
+    baseWidth: 0,
+    baseHeight: 0,
+    stageWidth: 0,
+    stageHeight: 0
+  };
   const viewer = createMediaViewer();
 
   initTheme();
@@ -738,6 +750,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const nextButton = dialog.querySelector('.viewer-next');
     let touchStartX = 0;
     let touchStartY = 0;
+    let touchMode = 'none';
+    let touchPanStartX = 0;
+    let touchPanStartY = 0;
+    let touchPanOriginX = 0;
+    let touchPanOriginY = 0;
+    let pinchStartDistance = 0;
+    let pinchStartScale = viewerZoomMin;
+    let pinchLocalX = 0;
+    let pinchLocalY = 0;
+    let pointerPan = null;
 
     closeButton.addEventListener('click', closeViewer);
     prevButton.addEventListener('click', () => moveViewer(-1));
@@ -765,23 +787,162 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
 
+    stage.addEventListener('wheel', event => {
+      if (!getZoomableViewerMedia()) return;
+
+      event.preventDefault();
+      const nextScale = viewerZoomState.scale * Math.exp(-event.deltaY * viewerWheelZoomSensitivity);
+      zoomViewerAt(nextScale, event.clientX, event.clientY);
+    }, { passive: false });
+
+    stage.addEventListener('pointerdown', event => {
+      if (event.pointerType === 'touch' || event.button !== 0 || viewerZoomState.scale <= viewerZoomMin) return;
+      if (!getZoomableViewerMedia()) return;
+
+      event.preventDefault();
+      pointerPan = {
+        id: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        originX: viewerZoomState.translateX,
+        originY: viewerZoomState.translateY
+      };
+      stage.classList.add('is-panning');
+      stage.setPointerCapture?.(event.pointerId);
+    });
+
+    stage.addEventListener('pointermove', event => {
+      if (!pointerPan || pointerPan.id !== event.pointerId) return;
+
+      event.preventDefault();
+      setViewerPan(
+        pointerPan.originX + event.clientX - pointerPan.startX,
+        pointerPan.originY + event.clientY - pointerPan.startY
+      );
+    });
+
+    stage.addEventListener('pointerup', endPointerPan);
+    stage.addEventListener('pointercancel', endPointerPan);
+
     stage.addEventListener('touchstart', event => {
-      const touch = event.changedTouches[0];
+      if (event.touches.length === 2 && getZoomableViewerMedia()) {
+        event.preventDefault();
+        touchMode = 'pinch';
+        startViewerPinch(event.touches[0], event.touches[1], stage);
+        return;
+      }
+
+      const touch = event.touches[0];
+      if (!touch) return;
+
       touchStartX = touch.clientX;
       touchStartY = touch.clientY;
-    }, { passive: true });
+      touchMode = viewerZoomState.scale > viewerZoomMin && getZoomableViewerMedia() ? 'pan' : 'swipe';
+
+      if (touchMode === 'pan') {
+        event.preventDefault();
+        touchPanStartX = touch.clientX;
+        touchPanStartY = touch.clientY;
+        touchPanOriginX = viewerZoomState.translateX;
+        touchPanOriginY = viewerZoomState.translateY;
+        stage.classList.add('is-panning');
+      }
+    }, { passive: false });
+
+    stage.addEventListener('touchmove', event => {
+      if (event.touches.length === 2 && getZoomableViewerMedia()) {
+        event.preventDefault();
+        touchMode = 'pinch';
+        updateViewerPinch(event.touches[0], event.touches[1], stage);
+        return;
+      }
+
+      if (touchMode !== 'pan' || event.touches.length !== 1) return;
+
+      const touch = event.touches[0];
+      event.preventDefault();
+      setViewerPan(
+        touchPanOriginX + touch.clientX - touchPanStartX,
+        touchPanOriginY + touch.clientY - touchPanStartY
+      );
+    }, { passive: false });
 
     stage.addEventListener('touchend', event => {
+      if (touchMode === 'pinch' && event.touches.length === 1) {
+        const touch = event.touches[0];
+        touchMode = viewerZoomState.scale > viewerZoomMin ? 'pan' : 'swipe';
+        touchStartX = touch.clientX;
+        touchStartY = touch.clientY;
+        touchPanStartX = touch.clientX;
+        touchPanStartY = touch.clientY;
+        touchPanOriginX = viewerZoomState.translateX;
+        touchPanOriginY = viewerZoomState.translateY;
+        return;
+      }
+
+      if (touchMode === 'pan') {
+        if (event.touches.length === 0) {
+          touchMode = 'none';
+          stage.classList.remove('is-panning');
+        }
+        return;
+      }
+
       const touch = event.changedTouches[0];
+      if (!touch) return;
+
       const deltaX = touch.clientX - touchStartX;
       const deltaY = touch.clientY - touchStartY;
 
       if (Math.abs(deltaX) > 52 && Math.abs(deltaX) > Math.abs(deltaY) * 1.5) {
         moveViewer(deltaX < 0 ? 1 : -1);
       }
+
+      if (event.touches.length === 0) touchMode = 'none';
     }, { passive: true });
 
+    stage.addEventListener('touchcancel', () => {
+      touchMode = 'none';
+      stage.classList.remove('is-panning');
+    });
+
     return dialog;
+
+    function endPointerPan(event) {
+      if (!pointerPan || pointerPan.id !== event.pointerId) return;
+      stage.releasePointerCapture?.(event.pointerId);
+      pointerPan = null;
+      stage.classList.remove('is-panning');
+    }
+
+    function startViewerPinch(touchA, touchB, targetStage) {
+      pinchStartDistance = getTouchDistance(touchA, touchB);
+      pinchStartScale = viewerZoomState.scale;
+      const midpoint = getTouchMidpoint(touchA, touchB);
+      const stagePoint = getStagePoint(targetStage, midpoint.x, midpoint.y);
+
+      pinchLocalX = (stagePoint.x - viewerZoomState.translateX) / viewerZoomState.scale;
+      pinchLocalY = (stagePoint.y - viewerZoomState.translateY) / viewerZoomState.scale;
+      targetStage.classList.remove('is-panning');
+    }
+
+    function updateViewerPinch(touchA, touchB, targetStage) {
+      if (!pinchStartDistance) return;
+
+      const distance = getTouchDistance(touchA, touchB);
+      const midpoint = getTouchMidpoint(touchA, touchB);
+      const stagePoint = getStagePoint(targetStage, midpoint.x, midpoint.y);
+      const nextScale = clamp(
+        pinchStartScale * (distance / pinchStartDistance),
+        viewerZoomMin,
+        viewerZoomMax
+      );
+
+      viewerZoomState.scale = nextScale;
+      viewerZoomState.translateX = stagePoint.x - pinchLocalX * nextScale;
+      viewerZoomState.translateY = stagePoint.y - pinchLocalY * nextScale;
+      applyViewerZoom();
+    }
   }
 
   function openViewer(index) {
@@ -820,6 +981,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const item = visibleMediaItems[viewerIndex];
     if (!item) return;
 
+    resetViewerZoom();
+
     const stage = viewer.querySelector('.viewer-stage');
     const title = viewer.querySelector('.viewer-title');
     const meta = viewer.querySelector('.viewer-meta');
@@ -832,10 +995,9 @@ document.addEventListener('DOMContentLoaded', () => {
           <source src="${escapeAttribute(item.url)}">
         </video>
       `
-      : `<img src="${escapeAttribute(item.url)}" alt="${mediaLabel}">`;
+      : `<img src="${escapeAttribute(item.url)}" alt="${mediaLabel}" draggable="false">`;
 
     const media = stage.querySelector('img, video');
-    media?.classList.add('viewer-fit-fill');
     media?.addEventListener(item.type === 'video' ? 'loadedmetadata' : 'load', syncViewerMediaFit, { once: true });
     requestAnimationFrame(syncViewerMediaFit);
 
@@ -866,23 +1028,115 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const stageRatio = stageRect.width / stageRect.height;
     const mediaRatio = mediaWidth / mediaHeight;
-    let fitWidth = stageRect.width;
-    let fitHeight = stageRect.height;
+    const fitScale = Math.min(1, stageRect.width / mediaWidth, stageRect.height / mediaHeight);
+    const fitWidth = mediaWidth * fitScale;
+    const fitHeight = mediaHeight * fitScale;
 
     media.classList.remove('viewer-fit-width', 'viewer-fit-height', 'viewer-fit-fill');
+    viewerZoomState.baseWidth = fitWidth;
+    viewerZoomState.baseHeight = fitHeight;
+    viewerZoomState.stageWidth = stageRect.width;
+    viewerZoomState.stageHeight = stageRect.height;
+    viewerZoomState.scale = clamp(viewerZoomState.scale, viewerZoomMin, viewerZoomMax);
 
     if (Math.abs(stageRatio - mediaRatio) < 0.01) {
       media.classList.add('viewer-fit-fill');
     } else if (mediaRatio > stageRatio) {
       media.classList.add('viewer-fit-width');
-      fitHeight = fitWidth / mediaRatio;
     } else {
       media.classList.add('viewer-fit-height');
-      fitWidth = fitHeight * mediaRatio;
     }
 
-    media.style.width = `${Math.floor(Math.max(1, fitWidth))}px`;
-    media.style.height = `${Math.floor(Math.max(1, fitHeight))}px`;
+    applyViewerZoom();
+  }
+
+  function getZoomableViewerMedia() {
+    const stage = viewer.querySelector('.viewer-stage');
+    const media = stage?.querySelector('img');
+    if (!media || !media.naturalWidth || !media.naturalHeight) return null;
+    return media;
+  }
+
+  function resetViewerZoom() {
+    viewerZoomState.scale = viewerZoomMin;
+    viewerZoomState.translateX = 0;
+    viewerZoomState.translateY = 0;
+    viewerZoomState.baseWidth = 0;
+    viewerZoomState.baseHeight = 0;
+    viewerZoomState.stageWidth = 0;
+    viewerZoomState.stageHeight = 0;
+
+    const stage = viewer.querySelector('.viewer-stage');
+    stage?.classList.remove('can-zoom', 'is-zoomed', 'is-panning');
+  }
+
+  function applyViewerZoom() {
+    const stage = viewer.querySelector('.viewer-stage');
+    const media = stage?.querySelector('img, video');
+    if (!stage || !media || !viewerZoomState.baseWidth || !viewerZoomState.baseHeight) return;
+
+    const displayWidth = viewerZoomState.baseWidth * viewerZoomState.scale;
+    const displayHeight = viewerZoomState.baseHeight * viewerZoomState.scale;
+    const maxTranslateX = Math.max(0, (displayWidth - viewerZoomState.stageWidth) / 2);
+    const maxTranslateY = Math.max(0, (displayHeight - viewerZoomState.stageHeight) / 2);
+
+    viewerZoomState.translateX = clamp(viewerZoomState.translateX, -maxTranslateX, maxTranslateX);
+    viewerZoomState.translateY = clamp(viewerZoomState.translateY, -maxTranslateY, maxTranslateY);
+
+    const isZoomable = media.tagName === 'IMG' && Boolean(media.naturalWidth && media.naturalHeight);
+
+    media.style.width = `${Math.round(Math.max(1, displayWidth))}px`;
+    media.style.height = `${Math.round(Math.max(1, displayHeight))}px`;
+    media.style.transform = `translate3d(${viewerZoomState.translateX}px, ${viewerZoomState.translateY}px, 0)`;
+    stage.classList.toggle('can-zoom', isZoomable);
+    stage.classList.toggle('is-zoomed', isZoomable && viewerZoomState.scale > viewerZoomMin + 0.01);
+  }
+
+  function zoomViewerAt(nextScale, clientX, clientY) {
+    const stage = viewer.querySelector('.viewer-stage');
+    if (!stage || !viewerZoomState.baseWidth || !viewerZoomState.baseHeight) return;
+
+    const currentScale = viewerZoomState.scale;
+    const clampedScale = clamp(nextScale, viewerZoomMin, viewerZoomMax);
+    if (Math.abs(clampedScale - currentScale) < 0.001) return;
+
+    const point = getStagePoint(stage, clientX, clientY);
+    const localX = (point.x - viewerZoomState.translateX) / currentScale;
+    const localY = (point.y - viewerZoomState.translateY) / currentScale;
+
+    viewerZoomState.scale = clampedScale;
+    viewerZoomState.translateX = point.x - localX * clampedScale;
+    viewerZoomState.translateY = point.y - localY * clampedScale;
+    applyViewerZoom();
+  }
+
+  function setViewerPan(nextX, nextY) {
+    viewerZoomState.translateX = nextX;
+    viewerZoomState.translateY = nextY;
+    applyViewerZoom();
+  }
+
+  function getStagePoint(stage, clientX, clientY) {
+    const rect = stage.getBoundingClientRect();
+    return {
+      x: clientX - (rect.left + rect.width / 2),
+      y: clientY - (rect.top + rect.height / 2)
+    };
+  }
+
+  function getTouchDistance(touchA, touchB) {
+    return Math.hypot(touchA.clientX - touchB.clientX, touchA.clientY - touchB.clientY);
+  }
+
+  function getTouchMidpoint(touchA, touchB) {
+    return {
+      x: (touchA.clientX + touchB.clientX) / 2,
+      y: (touchA.clientY + touchB.clientY) / 2
+    };
+  }
+
+  function clamp(value, min, max) {
+    return Math.min(max, Math.max(min, value));
   }
 
   function renderLoadingState() {
