@@ -318,10 +318,10 @@ iframe {
 
 .gallery-grid {
   display: grid;
-  grid-template-columns: repeat(var(--gallery-columns, 3), minmax(0, 1fr));
+  grid-template-columns: repeat(12, minmax(0, 1fr));
   grid-auto-flow: dense;
   gap: 2px;
-  max-height: min(68svh, 680px);
+  max-height: min(74svh, 760px);
   overflow-y: auto;
   overscroll-behavior-y: auto;
   padding: 2px;
@@ -333,10 +333,35 @@ iframe {
 
 .gallery-thumb {
   position: relative;
+  grid-column: span var(--gallery-span, 4);
   min-width: 0;
-  aspect-ratio: var(--gallery-tile-ratio, 1);
+  aspect-ratio: var(--gallery-thumb-ratio, var(--gallery-tile-ratio, 1));
   overflow: hidden;
   background: var(--transparent-image-bg);
+}
+
+.gallery-grid[data-layout="feature-3"] {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  aspect-ratio: 3 / 2;
+  max-height: none;
+  overflow: hidden;
+}
+
+.gallery-grid[data-layout="feature-3"] .gallery-thumb {
+  grid-column: auto;
+  aspect-ratio: auto;
+}
+
+.gallery-grid[data-layout="feature-3"] .gallery-thumb:first-child {
+  grid-row: span 2;
+}
+
+.gallery-grid[data-layout="single"],
+.gallery-grid[data-layout="pair"],
+.gallery-grid[data-layout="quad"] {
+  max-height: none;
+  overflow: hidden;
 }
 
 .gallery-open-button {
@@ -355,7 +380,7 @@ iframe {
 .gallery-open-button video {
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  object-fit: cover;
   object-position: center;
   background-color: var(--transparent-image-bg);
   transition: transform 220ms ease, filter 220ms ease;

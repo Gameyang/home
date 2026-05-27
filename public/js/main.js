@@ -374,7 +374,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <span class="status-pill ${escapeAttribute(post.type)}">${getTypeLabel(post.type)}</span>
           <span>${mediaItems.length}장</span>
         </div>
-        <div class="gallery-grid" aria-label="${escapeAttribute(post.title)} 미디어 그리드">
+        <div class="gallery-grid" data-count="${mediaItems.length}" aria-label="${escapeAttribute(post.title)} 미디어 그리드">
           ${mediaItems.map(({ item, mediaIndex }, displayIndex) => renderGalleryTile(item, post, mediaIndex, displayIndex, mediaItems.length)).join('')}
         </div>
       </div>
@@ -448,37 +448,51 @@ document.addEventListener('DOMContentLoaded', () => {
     const ratios = dimensions.map(item => item.ratio).sort((a, b) => a - b);
     const medianRatio = ratios[Math.floor(ratios.length / 2)] || 1;
     const orientation = getGalleryOrientation(ratios);
-    const baseTileRatio = getGalleryTileRatio(medianRatio, orientation);
     const gridWidth = Math.max(grid.clientWidth || grid.getBoundingClientRect().width || 0, 320);
     const isMobile = window.matchMedia('(max-width: 760px)').matches;
-    const maxColumns = isMobile ? Math.min(2, totalCount) : Math.min(3, totalCount);
-    const maxPreviewHeight = Math.min(window.innerHeight * (isMobile ? 0.62 : 0.68), isMobile ? 560 : 680);
-    const usablePreviewHeight = Math.max(1, maxPreviewHeight - 6);
-    const gap = 2;
+    const maxColumns = isMobile ? Math.min(2, totalCount) : Math.min(gridWidth >= 860 ? 4 : 3, totalCount);
 
+    if (totalCount <= 1) {
+      return {
+        columns: 1,
+        rows: 1,
+        tileRatio: getGalleryTileRatio(medianRatio, orientation),
+        orientation,
+        mode: 'single'
+      };
+    }
+
+    if (totalCount === 2) {
+      return { columns: 2, rows: 1, tileRatio: 1, orientation, mode: 'pair' };
+    }
+
+    if (totalCount === 3) {
+      return { columns: 2, rows: 2, tileRatio: 1, orientation, mode: 'feature-3' };
+    }
+
+    if (totalCount === 4) {
+      return { columns: 2, rows: 2, tileRatio: 1, orientation, mode: 'quad' };
+    }
+
+    const preferredColumns = isMobile ? 2 : totalCount < 7 ? 3 : maxColumns;
     let best = null;
-    for (let columns = 1; columns <= maxColumns; columns += 1) {
+
+    for (let columns = 2; columns <= maxColumns; columns += 1) {
       const rows = Math.ceil(totalCount / columns);
-      const tileWidth = (gridWidth - gap * (columns - 1)) / columns;
-      const requiredTileRatio = (tileWidth * rows + gap * (rows - 1)) / usablePreviewHeight;
-      const tileRatio = Math.max(baseTileRatio, requiredTileRatio);
-      const tileHeight = tileWidth / tileRatio;
-      const gridHeight = rows * tileHeight + gap * (rows - 1);
-      let score = 0;
+      const remainder = totalCount % columns;
+      const emptySlots = remainder === 0 ? 0 : columns - remainder;
+      let score = emptySlots * 25 + Math.abs(columns - preferredColumns) * 12;
 
-      if (gridHeight > maxPreviewHeight) score += (gridHeight - maxPreviewHeight) * 2;
-      if (tileWidth < 132) score += (132 - tileWidth) * 3;
-      if (totalCount === 2) score += Math.abs(columns - maxColumns) * 70;
-      if (totalCount >= 5) score += Math.abs(columns - maxColumns) * 80;
-      if (totalCount >= 3 && totalCount <= 4) score += Math.abs(columns - 2) * 70;
-      if (orientation === 'wide' && columns === maxColumns && totalCount <= 6) score += 45;
-      if (orientation === 'portrait' && columns < maxColumns && totalCount >= 5) score += 50;
+      if (remainder === 0) score -= 50;
+      if (remainder === 1) score += 80;
+      if (columns === 4 && gridWidth < 760) score += 35;
+      if (orientation === 'wide' && columns < maxColumns) score += 8;
 
-      const candidate = { columns, rows, tileRatio: Math.round(tileRatio * 1000) / 1000, orientation, score };
+      const candidate = { columns, rows, tileRatio: 1, orientation, mode: 'balanced', score };
       if (!best || candidate.score < best.score) best = candidate;
     }
 
-    return best || { columns: 1, rows: totalCount, tileRatio: baseTileRatio, orientation };
+    return best || { columns: 2, rows: Math.ceil(totalCount / 2), tileRatio: 1, orientation, mode: 'balanced' };
   }
 
   function getGalleryOrientation(ratios) {
@@ -492,20 +506,42 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function getGalleryTileRatio(medianRatio, orientation) {
-    if (orientation === 'wide') return medianRatio >= 2 ? 21 / 9 : 16 / 9;
-    if (orientation === 'portrait') return medianRatio <= 0.7 ? 3 / 4 : 4 / 5;
-    return 1;
+    if (orientation === 'wide') return Math.min(21 / 9, Math.max(16 / 10, medianRatio));
+    if (orientation === 'portrait') return Math.max(3 / 4, Math.min(4 / 5, medianRatio));
+    return Math.min(16 / 9, Math.max(4 / 5, medianRatio));
   }
 
   function applyGalleryGridLayout(grid, layout, dimensions) {
-    grid.style.setProperty('--gallery-columns', String(layout.columns));
     grid.style.setProperty('--gallery-tile-ratio', String(layout.tileRatio));
-    grid.dataset.layout = `${layout.columns}x${layout.rows}`;
+    grid.dataset.layout = layout.mode || `${layout.columns}x${layout.rows}`;
     grid.dataset.orientation = layout.orientation;
 
-    grid.querySelectorAll('.gallery-thumb').forEach((thumb, index) => {
+    const thumbs = Array.from(grid.querySelectorAll('.gallery-thumb'));
+    const totalCount = thumbs.length;
+    grid.dataset.count = String(totalCount);
+
+    const baseSpan = 12 / Math.max(1, layout.columns);
+    const remainder = totalCount % layout.columns;
+    const finalRowSpan = remainder > 0 ? 12 / remainder : baseSpan;
+
+    thumbs.forEach((thumb, index) => {
       const ratio = dimensions[index]?.ratio || 1;
       thumb.dataset.orientation = ratio >= 1.25 ? 'wide' : ratio <= 0.82 ? 'portrait' : 'square';
+
+      if (layout.mode === 'feature-3') {
+        thumb.style.removeProperty('--gallery-span');
+        thumb.style.removeProperty('--gallery-thumb-ratio');
+        return;
+      }
+
+      const isFinalPartialRow = remainder > 0 && index >= totalCount - remainder;
+      thumb.style.setProperty('--gallery-span', String(isFinalPartialRow ? finalRowSpan : baseSpan));
+
+      if (isFinalPartialRow) {
+        thumb.style.setProperty('--gallery-thumb-ratio', String((layout.columns / remainder) * layout.tileRatio));
+      } else {
+        thumb.style.removeProperty('--gallery-thumb-ratio');
+      }
     });
   }
 
