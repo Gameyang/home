@@ -321,14 +321,9 @@ iframe {
   grid-template-columns: repeat(12, minmax(0, 1fr));
   grid-auto-flow: dense;
   gap: 2px;
-  max-height: min(74svh, 760px);
-  overflow-y: auto;
-  overscroll-behavior-y: auto;
   padding: 2px;
   background: var(--transparent-image-frame);
-  scrollbar-width: thin;
   touch-action: pan-y;
-  -webkit-overflow-scrolling: touch;
 }
 
 .gallery-thumb {
@@ -1077,10 +1072,6 @@ button.media-expand {
     padding: 9px 10px;
   }
 
-  .gallery-grid {
-    max-height: min(62svh, 560px);
-  }
-
   .media-overlay {
     top: 10px;
     left: 10px;
@@ -1285,9 +1276,6 @@ button.media-expand {
     color: #fff;
   }
 
-  .post-card.gallery .gallery-grid {
-    max-height: 58svh;
-  }
 }
 
 @media (max-width: 430px) {
