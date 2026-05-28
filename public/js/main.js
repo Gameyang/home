@@ -42,7 +42,7 @@ document.addEventListener('DOMContentLoaded', () => {
         throw new Error('연결된 공개 프로젝트 피드가 없습니다.');
       }
 
-      const results = await Promise.allSettled(sources.map(loadSourceFeed));
+      const results = await Promise.allSettled(sources.map((source, index) => loadSourceFeed(source, index)));
       const loadedPosts = [];
       sourceErrors = [];
 
@@ -60,11 +60,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
       });
 
-      posts = loadedPosts.sort((a, b) => {
-        const dateCompare = b.sortDate - a.sortDate;
-        if (dateCompare !== 0) return dateCompare;
-        return 0;
-      });
+      posts = loadedPosts.sort(comparePosts);
 
       renderFeed(posts);
     } catch (error) {
@@ -75,14 +71,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  async function loadSourceFeed(source) {
+  async function loadSourceFeed(source, sourceOrder = 0) {
     if (!source || !source.feedUrl) {
       throw new Error('feedUrl이 없는 source 항목입니다.');
     }
 
     const feed = await fetchJson(source.feedUrl);
     const baseUrl = new URL(source.feedUrl, window.location.href);
-    const project = normalizeProject(feed.project || {}, source, baseUrl);
+    const project = normalizeProject(feed.project || {}, source, baseUrl, sourceOrder);
     const feedPosts = Array.isArray(feed.posts) ? feed.posts : [];
 
     return {
@@ -160,7 +156,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   }
 
-  function normalizeProject(project, source, baseUrl) {
+  function normalizeProject(project, source, baseUrl, sourceOrder = 0) {
     const sourceUrl = source.sourceUrl || project.sourceUrl || '';
     const pageUrl = source.pageUrl || project.pageUrl || sourceUrl || '';
 
@@ -170,6 +166,7 @@ document.addEventListener('DOMContentLoaded', () => {
       description: project.description || '',
       pageUrl: resolveUrl(pageUrl, baseUrl),
       sourceUrl: resolveUrl(sourceUrl, baseUrl),
+      sourceOrder,
       tags: normalizeTags([...(project.tags || []), ...(source.tags || [])])
     };
   }
@@ -188,12 +185,27 @@ document.addEventListener('DOMContentLoaded', () => {
       text: post.text || post.description || '',
       date,
       sortDate,
+      sourceOrder: project.sourceOrder,
+      sourcePostIndex: index,
       type,
       media,
       url: resolveUrl(post.url || project.pageUrl, baseUrl),
       linkLabel: post.linkLabel || post.urlLabel || post.linkText || '',
       tags: normalizeTags([...(project.tags || []), ...(post.tags || [])])
     };
+  }
+
+  function comparePosts(a, b) {
+    const dateCompare = b.sortDate - a.sortDate;
+    if (dateCompare !== 0) return dateCompare;
+
+    const postIndexCompare = a.sourcePostIndex - b.sourcePostIndex;
+    if (postIndexCompare !== 0) return postIndexCompare;
+
+    const sourceCompare = a.sourceOrder - b.sourceOrder;
+    if (sourceCompare !== 0) return sourceCompare;
+
+    return a.id.localeCompare(b.id);
   }
 
   function normalizeMedia(media, baseUrl) {
