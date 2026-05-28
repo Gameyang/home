@@ -24,5 +24,18 @@
       "TypeScript",
       "Non-commercial"
     ]
+  },
+  {
+    "id": "skyfall-mage2",
+    "title": "Skyfall Mage2",
+    "feedUrl": "https://gameyang.github.io/Skyfall-Mage2/public/home-feed.json",
+    "pageUrl": "https://gameyang.github.io/Skyfall-Mage2/tech-tests/noita-webgpu/",
+    "sourceUrl": "https://github.com/Gameyang/Skyfall-Mage2",
+    "tags": [
+      "Game",
+      "WebGPU",
+      "Tech Test",
+      "Non-commercial"
+    ]
   }
 ]
